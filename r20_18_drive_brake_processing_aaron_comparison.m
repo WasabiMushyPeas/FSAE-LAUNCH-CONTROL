@@ -12,7 +12,7 @@ clear;
 % Load data
 
 % CHANGE FILE LOCATION TO YOURS<<>>>>>
-data = load("C:\Users\jacks\OneDrive\Documents\MATLAB\CP25E_dynamics\Tires\r20_processing_bw\RunData_DriveBrake_Matlab_USCS_Round9\A2356run72.mat");
+data = load(".\A2356run72.mat");
 
 slip_ratio = data.SR;
 fx = data.FX;
