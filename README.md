@@ -8,23 +8,30 @@
 > Simulation and controls workflow for optimizing launch performance in the Formula SAE EV acceleration event.
 
 ## Table of Contents
-- [Overview](#overview)
-- [Objectives](#objectives)
-- [Tech Stack](#tech-stack)
-- [Features](#features)
-- [Repository Structure](#repository-structure)
-- [Simulink Architecture](#simulink-architecture)
-  - [Aero Block](#aero-block)
-  - [Weight Transfer](#weight-transfer)
-  - [Tire Model](#tire-model)
-  - [Motor Torque](#motor-torque)
-  - [Controller](#controller)
-  - [Vehicle and Drivetrain Dynamics](#vehicle-and-drivetrain-dynamics)
-- [How to Run](#how-to-run)
-- [Simulation Outputs](#simulation-outputs)
-- [Model Assumptions and Scope](#model-assumptions-and-scope)
-- [Current Limitations](#current-limitations)
-- [Results and Validation](#results-and-validation)
+- [Cal Poly Racing EV 2026 | Launch Control \& Vehicle Dynamics Simulation](#cal-poly-racing-ev-2026--launch-control--vehicle-dynamics-simulation)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Objectives](#objectives)
+  - [Repository Structure](#repository-structure)
+    - [File Summary](#file-summary)
+    - [Repository Tree](#repository-tree)
+  - [Simulink Architecture](#simulink-architecture)
+    - [Aero Block](#aero-block)
+    - [Weight Transfer](#weight-transfer)
+    - [Tire Model](#tire-model)
+    - [Motor Torque](#motor-torque)
+    - [Controller](#controller)
+    - [Vehicle and Drivetrain Dynamics](#vehicle-and-drivetrain-dynamics)
+  - [How to Run](#how-to-run)
+    - [Requirements](#requirements)
+    - [Workflow](#workflow)
+    - [Recommended Starting Point](#recommended-starting-point)
+  - [Simulation Outputs](#simulation-outputs)
+    - [Performance Metrics](#performance-metrics)
+    - [Time-History Outputs](#time-history-outputs)
+  - [Model Assumptions and Scope](#model-assumptions-and-scope)
+  - [Current Limitations](#current-limitations)
+  - [Results and Validation](#results-and-validation)
 
 ## Overview
 This repository contains the **Simulink model** and **MATLAB live scripts** used to simulate, analyze, and optimize the launch control strategy for the **Cal Poly Racing EV 2026** Formula SAE car in the **0-75 m acceleration event**.
@@ -34,9 +41,8 @@ The project is built around a **rear-wheel-drive electric vehicle model** and fo
 - a custom **PID-based traction controller**
 - a **time-based baseline throttle strategy**
 - a simplified but highly practical **tire force model**
-- an **advanced drivetrain representation** that captures half-shaft compliance and oscillatory behavior
 
-The result is a simulation workflow intended to support a near-production controls process: parameterize the vehicle, run the launch model, inspect system behavior, and iterate on gearing, controller gains, and drivetrain assumptions until the car launches harder, cleaner, and more consistently.
+The result is a simulation workflow intended to support a near-production controls process: parameterize the vehicle, run the launch model, inspect system behavior, controller gains, and drivetrain assumptions until the car launches harder, cleaner, and more consistently.
 
 ## Objectives
 The primary objective of this project is to reduce the vehicle's **0-75 meter acceleration time** while preserving controllability and limiting excessive wheel slip.
@@ -49,45 +55,46 @@ Secondary goals include:
 - understanding how **weight transfer, tire loading, and drivetrain compliance** influence launch performance
 - creating a repeatable simulation workflow for future team members and design reviews
 
-## Tech Stack
-- **MATLAB R2025B**
-- **Simulink**
-
-## Features
-- **Launch-control-focused vehicle simulation** for the FSAE acceleration event
-- **Rear-wheel-drive EV drivetrain model** tailored for straight-line performance analysis
-- **Custom PID-based slip controller** targeting a defined optimal slip ratio
-- **Baseline throttle lookup table** for feedforward launch shaping
-- **Dynamic rear axle normal force estimation** through longitudinal weight transfer
-- **Simplified Pacejka-based tire force model** with grip-factor scaling
-- **Half-shaft spring-mass-damper model** to capture drivetrain oscillation and resonance effects
-- **Final drive ratio sweep tools** for mechanical optimization
-- **Fast PID tuning workflow** for rapid iteration
-- **MATLAB post-processing and plotting** for time-history analysis and performance comparison
-
 ## Repository Structure
 
 ### File Summary
 | File | Purpose |
 |---|---|
-| `PARAMS.mlx` | Main script used to configure variables, initialize model parameters, run setup logic, and graph simulation results. |
-| `TC_SIM.slx` | Core Simulink model for launch control, traction control, drivetrain response, and vehicle longitudinal dynamics. |
+| `.gitattributes` | Git attributes configuration for normalizing repository file handling. |
 | `FINAL_DRIVE_RATIO.mlx` | Iterative script used to sweep final drive ratios and identify the best mechanical advantage for acceleration performance. |
 | `FINAL_DRIVE_RATIO_OLD.mlx` | Previous iteration of the final drive sweep workflow retained for reference and comparison. |
+| `PARAMS.mlx` | Main script used to configure variables, initialize model parameters, run setup logic, and graph simulation results. |
 | `PID_TUNER.mlx` | Script used for faster controller gain sweeps and traction-control tuning studies. |
+| `README.md` | Project documentation covering repository structure, model architecture, workflow, and assumptions. |
+| `SIM-PICTURE.pdf` | Reference PDF showing a model or simulation diagram used for documentation. |
+| `sweep_results.csv` | Exported results from a parameter sweep study for quick review outside MATLAB. |
+| `TC_PID_sweep_results.mat` | Saved MATLAB data file containing PID sweep results for later analysis. |
+| `TC_SIM.slx` | Core Simulink model for launch control, traction control, drivetrain response, and vehicle longitudinal dynamics. |
+| `TC_SIM.slx.original` | Backup copy of the Simulink model preserved for comparison or recovery. |
+| `TC_SIM.slxc` | Simulink generated cache or compiled artifact for the main model. |
 | `TC_SIM_FAST.slx` | Streamlined Simulink model paired with `PID_TUNER.mlx` for rapid PID tuning iterations. |
+| `figures/` | Directory for generated plots, images, or other visual outputs used in the project. |
+| `slprj/` | Simulink generated build and cache directory created during model compilation and execution. |
 
 ### Repository Tree
 ```text
 .
-├── PARAMS.mlx
-├── TC_SIM.slx
-├── FINAL_DRIVE_RATIO.mlx
-├── FINAL_DRIVE_RATIO_OLD.mlx
-├── PID_TUNER.mlx
-└── TC_SIM_FAST.slx
+|-- .gitattributes
+|-- FINAL_DRIVE_RATIO.mlx
+|-- FINAL_DRIVE_RATIO_OLD.mlx
+|-- PARAMS.mlx
+|-- PID_TUNER.mlx
+|-- README.md
+|-- SIM-PICTURE.pdf
+|-- sweep_results.csv
+|-- TC_PID_sweep_results.mat
+|-- TC_SIM.slx
+|-- TC_SIM.slx.original
+|-- TC_SIM.slxc
+|-- TC_SIM_FAST.slx
+|-- figures/
+`-- slprj/
 ```
-
 ## Simulink Architecture
 The `TC_SIM.slx` model is organized around a set of subsystems that together simulate the launch event from throttle command to tire force generation and vehicle motion.
 
@@ -248,3 +255,4 @@ Planned additions include:
 ---
 
 Built for internal development, simulation-driven controls design, and knowledge transfer within **Cal Poly Racing EV**.
+
