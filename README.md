@@ -126,14 +126,23 @@ The motor subsystem applies a **hardcoded rpm vs. torque curve** to represent av
 
 ### Controller
 
-The control strategy consists of:
+The traction controller is implemented as a **discrete-time PID controller** written as a single transfer function rather than separate P, I, and D blocks.
 
-- a **time-based lookup table** that defines a baseline target throttle or torque percentage during launch
-- a **PID controller** that outputs a **torque correction** relative to that baseline command
+At a high level, the strategy consists of:
+
+- a **time-based lookup table** that defines the baseline launch command
+- a **discrete PID slip controller** that generates a **torque correction** from slip error
 - a control objective of maintaining a **target slip ratio of `0.13`**
+- a post-controller **saturation** and **sign inversion** so excessive slip reduces commanded torque
 - a blending strategy that transitions smoothly toward the primary throttle input at higher vehicle speeds
 
-This structure allows the system to launch aggressively while still correcting for excessive wheel slip when the tire approaches or moves beyond peak traction.
+The PID is the continuous form `P + I/s + D s` converted to discrete time with a **Zero-Order Hold (ZOH)**. In this implementation, the proportional term reacts to present slip error, the integral term uses **trapezoidal integration** to remove steady-state offset, and the derivative term applies the Tustin discrete derivative to react to rapid slip changes.
+
+Simulink evaluates the controller as a recursive update law using the current error, the two previous error samples, and the output from two samples ago. That means the block is using controller state internally, even though it appears as a single transfer function.
+
+In the current parameter set, **`P = 1.75`**, **`I = 4`**, **`D = 0`**, and **`Ts = 0.01 s`**, so the active controller is effectively operating as a **discrete PI controller** under this more general PID structure.
+
+Because the **saturation is applied after the PID block**, this is **not true anti-windup**. The integral action inside the discrete controller can still accumulate when the output is clipped, which can contribute to delayed release or overshoot during traction events.
 
 ## How to Run
 ### Requirements
@@ -185,7 +194,6 @@ The current model setup assumes:
 - **blended controller scheduling between `3.0 m/s` and `8.0 m/s`** using **`Start_Blend = 3.0`** and **`End_Blend = 8.0`**
 - **actuator and speed limits** of **`Max_Wheel_Omega = 183.3 rad/s`** and **`Max_Motor_Torque = 150 Nm`**
 - **gravity fixed at `9.80665 m/s^2`**
-- **PID slip controller gains `P = 1.75`, `I = 4`, `D = 0`**, with **sample time `Ts = 0.01 s`**
 - **simulation-first development**, with no real-vehicle correlation completed yet
 
 ## Current Limitations
