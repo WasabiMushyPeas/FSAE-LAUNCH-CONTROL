@@ -14,19 +14,15 @@
   - [Objectives](#objectives)
   - [Repository Structure](#repository-structure)
     - [File Summary](#file-summary)
-    - [Repository Tree](#repository-tree)
   - [Simulink Architecture](#simulink-architecture)
     - [Aero Block](#aero-block)
     - [Weight Transfer](#weight-transfer)
     - [Tire Model](#tire-model)
     - [Motor Torque](#motor-torque)
     - [Controller](#controller)
-    - [Vehicle and Drivetrain Dynamics](#vehicle-and-drivetrain-dynamics)
   - [How to Run](#how-to-run)
     - [Requirements](#requirements)
     - [Workflow](#workflow)
-    - [Recommended Starting Point](#recommended-starting-point)
-  - [Simulation Outputs](#simulation-outputs)
     - [Performance Metrics](#performance-metrics)
     - [Time-History Outputs](#time-history-outputs)
   - [Model Assumptions and Scope](#model-assumptions-and-scope)
@@ -76,25 +72,7 @@ Secondary goals include:
 | `figures/` | Directory for generated plots, images, or other visual outputs used in the project. |
 | `slprj/` | Simulink generated build and cache directory created during model compilation and execution. |
 
-### Repository Tree
-```text
-.
-|-- .gitattributes
-|-- FINAL_DRIVE_RATIO.mlx
-|-- FINAL_DRIVE_RATIO_OLD.mlx
-|-- PARAMS.mlx
-|-- PID_TUNER.mlx
-|-- README.md
-|-- SIM-PICTURE.pdf
-|-- sweep_results.csv
-|-- TC_PID_sweep_results.mat
-|-- TC_SIM.slx
-|-- TC_SIM.slx.original
-|-- TC_SIM.slxc
-|-- TC_SIM_FAST.slx
-|-- figures/
-`-- slprj/
-```
+
 ## Simulink Architecture
 The `TC_SIM.slx` model is organized around a set of subsystems that together simulate the launch event from throttle command to tire force generation and vehicle motion.
 
@@ -143,12 +121,10 @@ At a high level, the model:
 This provides a practical balance between physical realism and simulation speed for launch-control studies.
 
 ### Motor Torque
-The motor subsystem applies a **hardcoded EV power/torque curve** to represent available propulsion over the launch event.
+The motor subsystem applies a **hardcoded rpm vs. torque curve** to represent available torque over the launch event.
 
-This block acts as the powertrain force source and works with the controller and drivetrain model to determine how much torque ultimately reaches the tire contact patch.
 
 ### Controller
-The controller combines **feedforward launch shaping** with **closed-loop slip correction**.
 
 The control strategy consists of:
 
@@ -159,25 +135,6 @@ The control strategy consists of:
 
 This structure allows the system to launch aggressively while still correcting for excessive wheel slip when the tire approaches or moves beyond peak traction.
 
-### Vehicle and Drivetrain Dynamics
-This subsystem models the longitudinal response of the car and includes drivetrain dynamics beyond a simple rigid connection.
-
-Key behaviors represented include:
-
-- **vehicle acceleration and velocity propagation**
-- **distance integration** for event-time measurement
-- a **0.02 s electrical/motor response delay**
-- an advanced **half-shaft spring-mass-damper model**
-
-The half-shaft model uses:
-
-- wheel-side inertia
-- motor-side inertia
-- half-shaft stiffness
-- half-shaft damping
-
-This enables the model to simulate **drivetrain resonance, torque windup, and oscillatory behavior** that can meaningfully affect early-launch response and traction-controller stability.
-
 ## How to Run
 ### Requirements
 - **MATLAB R2025B**
@@ -187,15 +144,9 @@ This enables the model to simulate **drivetrain resonance, torque windup, and os
 1. Open `PARAMS.mlx`.
 2. Configure the variables in `PARAMS.mlx` as desired.
 3. Run `PARAMS.mlx` to initialize workspace variables and setup parameters.
-4. Open `TC_SIM.slx`.
-5. Click **Run** in Simulink.
-6. Inspect generated plots, logged signals, and workspace outputs.
+4. Click **Run** in Matlab Live Editor.
+5. Inspect generated plots, logged signals, and workspace outputs.
 
-### Recommended Starting Point
-The simulation is intended to run reasonably well with the existing setup, so new users can usually start with the default configuration before tuning parameters.
-
-## Simulation Outputs
-The workflow is set up to evaluate headline launch metrics as well as key internal controller and vehicle states.
 
 ### Performance Metrics
 - **0-75 m time**
@@ -218,18 +169,24 @@ The following signals are tracked or plotted versus time:
 These outputs are intended to support both performance optimization and controls debugging.
 
 ## Model Assumptions and Scope
-This model is intentionally focused on the FSAE acceleration event and uses a controlled set of assumptions to keep the workflow fast, interpretable, and useful for iteration.
+This model is intentionally focused on the FSAE acceleration event and uses a fixed set of vehicle, tire, aerodynamic, and controller parameters to keep the workflow fast, interpretable, and useful for iteration.
 
-Current scope and assumptions include:
+The current model setup assumes:
 
-- **straight-line acceleration only**
-- **rear-wheel-drive EV configuration**
-- **launch optimization for the 0-75 m event**
-- **high-level drivetrain compliance modeling** rather than full multibody drivetrain simulation
-- **simplified tire behavior** using a reduced Pacejka-style longitudinal force formulation
-- **surface grip effects represented through a tunable grip factor**
-- **controller target slip ratio fixed at `0.13`** in the present implementation
-- **simulation-first workflow**, with no real-vehicle correlation completed yet
+- **straight-line rear-wheel-drive EV acceleration** for the **0-75 m event**
+- **vehicle mass `Mv = 285.763 kg`**, **wheel radius `r = 0.203 m`**, **CG height `h_cg = 0.25273 m`**, and **wheelbase `W = 1.53035 m`**
+- **static CG location `cg_f = 0.734568 m`** measured from the front axle
+- **drivetrain represented with lumped rotational inertias** using **`J = 1.2 kg*m^2`**, **`J_Motor = 0.25 kg*m^2`**, and **`J_Wheel = 0.165 kg*m^2`**
+- **half-shaft compliance modeled as a torsional spring-damper** with **stiffness `K = 2552 Nm/rad`** and **damping `C = 30 Nms/rad`**
+- **fixed final drive ratio `fd = 4.5`** and **drivetrain efficiency `Drive_Train = 0.89`**
+- **simplified longitudinal tire behavior** with **`Grip_Fact = 1.0`** and **`Grip_Influence = 1.2`** used to scale available grip and table sensitivity
+- **aerodynamics represented with constant coefficients** using **frontal area `A = 1 m^2`**, **air density `rho = 1.225 kg/m^3`**, **drag coefficient `Cd = 1`**, **lift coefficient `Cl = 3.8`**, and **rear aero load distribution `Cp = 0.53`**
+- **traction control targeting slip ratio `Slip_Target = 0.13`** with **initial driver torque request `T_request = 150 Nm`**
+- **blended controller scheduling between `3.0 m/s` and `8.0 m/s`** using **`Start_Blend = 3.0`** and **`End_Blend = 8.0`**
+- **actuator and speed limits** of **`Max_Wheel_Omega = 183.3 rad/s`** and **`Max_Motor_Torque = 150 Nm`**
+- **gravity fixed at `9.80665 m/s^2`**
+- **PID slip controller gains `P = 1.75`, `I = 4`, `D = 0`**, with **sample time `Ts = 0.01 s`**
+- **simulation-first development**, with no real-vehicle correlation completed yet
 
 ## Current Limitations
 This repository is actively under development, and several known areas still require refinement:
@@ -253,6 +210,3 @@ Planned additions include:
 - eventual comparison between **simulation predictions and real vehicle data**
 
 ---
-
-Built for internal development, simulation-driven controls design, and knowledge transfer within **Cal Poly Racing EV**.
-
