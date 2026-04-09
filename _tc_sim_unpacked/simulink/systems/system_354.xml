@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<System>
+  <P Name="Location">[-1, -8, 2561, 1393]</P>
+  <P Name="ZoomFactor">200</P>
+  <Block BlockType="Inport" Name="Error" SID="355">
+    <P Name="Position">[20, 28, 50, 42]</P>
+    <P Name="ZOrder">393</P>
+  </Block>
+  <Block BlockType="Inport" Name="Vehicle Speed" SID="356">
+    <P Name="Position">[20, 153, 50, 167]</P>
+    <P Name="ZOrder">394</P>
+    <P Name="Port">2</P>
+    <PortProperties>
+      <Port Type="out" Index="1">
+        <P Name="PropagatedSignals">Vehicle Velocity</P>
+      </Port>
+    </PortProperties>
+  </Block>
+  <Block BlockType="Constant" Name="Constant1" SID="353">
+    <P Name="Position">[25, 225, 45, 245]</P>
+    <P Name="ZOrder">397</P>
+    <P Name="Value">0</P>
+  </Block>
+  <Block BlockType="DiscreteTransferFcn" Name="Discrete&#xA;Transfer Fucn" SID="312">
+    <PortCounts in="1" out="1"/>
+    <P Name="Position">[360, 142, 420, 178]</P>
+    <P Name="ZOrder">367</P>
+    <P Name="CopyFcn">dspblkCoreblockFVToolHelper(gcbh,&apos;copy&apos;);</P>
+    <P Name="DeleteFcn">dspblkCoreblockFVToolHelper(gcbh,&apos;close&apos;);</P>
+    <P Name="LoadFcn">dspblkCoreblockFVToolHelper(gcbh,&apos;load&apos;);</P>
+    <P Name="ModelCloseFcn">dspblkCoreblockFVToolHelper(gcbh,&apos;close&apos;);</P>
+    <P Name="PreSaveFcn">dspblkCoreblockFVToolHelper(gcbh,&apos;presave&apos;);</P>
+    <P Name="PostSaveFcn">dspblkCoreblockFVToolHelper(gcbh,&apos;postsave&apos;);</P>
+    <P Name="CloseFcn">dspblkCoreblockFVToolHelper(gcbh,&apos;close&apos;);</P>
+    <P Name="InputPortMap">u0</P>
+    <P Name="Numerator">[ (P + (I*Ts/2) + (2*D/Ts)),  ((I*Ts) - (4*D/Ts)),  (-P + (I*Ts/2) + (2*D/Ts)) ]</P>
+    <P Name="Denominator">[ 1,  0,  -1 ]</P>
+  </Block>
+  <Block BlockType="ToWorkspace" Name="Error To Workspace" SID="52">
+    <PortCounts in="1"/>
+    <P Name="Position">[280, 20, 370, 50]</P>
+    <P Name="ZOrder">399</P>
+    <P Name="VariableName">error</P>
+    <P Name="MaxDataPoints">inf</P>
+    <P Name="SaveFormat">Timeseries</P>
+    <P Name="FixptAsFi">on</P>
+    <P Name="SampleTime">-1</P>
+  </Block>
+  <Block BlockType="Gain" Name="Gain" SID="363">
+    <P Name="Position">[570, 145, 600, 175]</P>
+    <P Name="ZOrder">400</P>
+    <P Name="Gain">-1</P>
+  </Block>
+  <Block BlockType="Saturate" Name="Saturation -1 to 1" SID="270">
+    <P Name="Position">[485, 145, 515, 175]</P>
+    <P Name="ZOrder">352</P>
+    <P Name="UpperLimit">1</P>
+    <P Name="LowerLimit">-1</P>
+  </Block>
+  <Block BlockType="Switch" Name="Switch at Vehicle Speed" SID="352">
+    <P Name="Position">[190, 140, 240, 180]</P>
+    <P Name="ZOrder">392</P>
+    <P Name="Criteria">u2 &gt; Threshold</P>
+    <P Name="Threshold">Start_Blend</P>
+    <P Name="InputSameDT">off</P>
+    <P Name="SaturateOnIntegerOverflow">off</P>
+  </Block>
+  <Block BlockType="ZeroOrderHold" Name="Zero Order&#xA;Hold" SID="313">
+    <P Name="Position">[290, 145, 325, 175]</P>
+    <P Name="ZOrder">368</P>
+    <P Name="SampleTime">Ts</P>
+  </Block>
+  <Block BlockType="Outport" Name="PID Correction" SID="358">
+    <P Name="Position">[655, 153, 685, 167]</P>
+    <P Name="ZOrder">396</P>
+  </Block>
+  <Line>
+    <P Name="ZOrder">471</P>
+    <P Name="Src">352#out:1</P>
+    <P Name="Dst">313#in:1</P>
+  </Line>
+  <Line>
+    <P Name="ZOrder">307</P>
+    <P Name="Src">313#out:1</P>
+    <P Name="Dst">312#in:1</P>
+  </Line>
+  <Line>
+    <P Name="ZOrder">483</P>
+    <P Name="Src">355#out:1</P>
+    <P Name="Points">[102, 0]</P>
+    <Branch>
+      <P Name="ZOrder">502</P>
+      <P Name="Points">[0, 110]</P>
+      <P Name="Dst">352#in:1</P>
+    </Branch>
+    <Branch>
+      <P Name="ZOrder">501</P>
+      <P Name="Dst">52#in:1</P>
+    </Branch>
+  </Line>
+  <Line>
+    <P Name="ZOrder">486</P>
+    <P Name="Src">270#out:1</P>
+    <P Name="Dst">363#in:1</P>
+  </Line>
+  <Line>
+    <P Name="ZOrder">484</P>
+    <P Name="Src">356#out:1</P>
+    <P Name="Dst">352#in:2</P>
+  </Line>
+  <Line>
+    <P Name="ZOrder">487</P>
+    <P Name="Src">353#out:1</P>
+    <P Name="Points">[68, 0; 0, -60]</P>
+    <P Name="Dst">352#in:3</P>
+  </Line>
+  <Line>
+    <P Name="ZOrder">489</P>
+    <P Name="Src">312#out:1</P>
+    <P Name="Dst">270#in:1</P>
+  </Line>
+  <Line>
+    <P Name="ZOrder">492</P>
+    <P Name="Src">363#out:1</P>
+    <P Name="Dst">358#in:1</P>
+  </Line>
+</System>

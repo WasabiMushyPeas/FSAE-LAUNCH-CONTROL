@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<System>
+  <P Name="Location">[-1, -8, 2561, 1393]</P>
+  <P Name="ZoomFactor">112</P>
+  <Block BlockType="Inport" Name="Wheel Speed" SID="33">
+    <P Name="Position">[20, 118, 50, 132]</P>
+    <P Name="ZOrder">21</P>
+  </Block>
+  <Block BlockType="Inport" Name="Vehicle Velocity" SID="34">
+    <P Name="Position">[20, 183, 50, 197]</P>
+    <P Name="ZOrder">22</P>
+    <P Name="Port">2</P>
+    <PortProperties>
+      <Port Type="out" Index="1">
+        <P Name="PropagatedSignals">Vehicle Velocity</P>
+      </Port>
+    </PortProperties>
+  </Block>
+  <Block BlockType="Inport" Name="Normal Force " SID="149">
+    <P Name="Position">[15, 8, 45, 22]</P>
+    <P Name="ZOrder">29</P>
+    <P Name="Port">3</P>
+  </Block>
+  <Block BlockType="SubSystem" Name="Friction Coefficient Calc" SID="29">
+    <PortCounts in="3" out="2"/>
+    <P Name="Position">[525, -54, 690, 84]</P>
+    <P Name="ZOrder">18</P>
+    <P Name="LibrarySourceProduct" Ref="bdmxdata:LibrarySourceProduct_29"/>
+    <P Name="ErrorFcn">Stateflow.Translate.translate</P>
+    <P Name="PermitHierarchicalResolution">ExplicitOnly</P>
+    <P Name="TreatAsAtomicUnit">on</P>
+    <P Name="SFBlockType">MATLAB Function</P>
+    <P Name="ContentPreviewEnabled">on</P>
+    <PortProperties>
+      <Port Type="out" Index="1">
+        <P Name="PropagatedSignals">Fx</P>
+      </Port>
+      <Port Type="out" Index="2">
+        <P Name="PropagatedSignals">mu</P>
+      </Port>
+    </PortProperties>
+    <System Ref="system_29"/>
+  </Block>
+  <Block BlockType="Constant" Name="Grip Factor" SID="187">
+    <P Name="Position">[15, 45, 45, 75]</P>
+    <P Name="ZOrder">33</P>
+    <P Name="Value">Grip_Fact</P>
+  </Block>
+  <Block BlockType="ToWorkspace" Name="Longitudinal Force To Workspace" SID="57">
+    <PortCounts in="1"/>
+    <P Name="Position">[1065, -35, 1155, -5]</P>
+    <P Name="ZOrder">25</P>
+    <P Name="VariableName">Longitudinal_Force</P>
+    <P Name="MaxDataPoints">inf</P>
+    <P Name="SaveFormat">Timeseries</P>
+    <P Name="FixptAsFi">on</P>
+    <P Name="SampleTime">-1</P>
+  </Block>
+  <Block BlockType="Memory" Name="Memory" SID="150">
+    <P Name="Position">[185, 0, 215, 30]</P>
+    <P Name="ZOrder">30</P>
+  </Block>
+  <Block BlockType="SubSystem" Name="Slip Ratio" SID="27">
+    <PortCounts in="2" out="1"/>
+    <P Name="Position">[275, 93, 405, 222]</P>
+    <P Name="ZOrder">17</P>
+    <P Name="LibrarySourceProduct" Ref="bdmxdata:LibrarySourceProduct_27"/>
+    <P Name="ErrorFcn">Stateflow.Translate.translate</P>
+    <P Name="PermitHierarchicalResolution">ExplicitOnly</P>
+    <P Name="TreatAsAtomicUnit">on</P>
+    <P Name="SFBlockType">MATLAB Function</P>
+    <P Name="ContentPreviewEnabled">on</P>
+    <PortProperties>
+      <Port Type="out" Index="1">
+        <P Name="PropagatedSignals">SlipRatio</P>
+      </Port>
+    </PortProperties>
+    <System Ref="system_27"/>
+  </Block>
+  <Block BlockType="ToWorkspace" Name="Slip Ratio To Workspace" SID="59">
+    <PortCounts in="1"/>
+    <P Name="Position">[930, 240, 1020, 270]</P>
+    <P Name="ZOrder">27</P>
+    <P Name="VariableName">slip_ratio</P>
+    <P Name="MaxDataPoints">inf</P>
+    <P Name="SaveFormat">Timeseries</P>
+    <P Name="FixptAsFi">on</P>
+    <P Name="SampleTime">-1</P>
+  </Block>
+  <Block BlockType="ToWorkspace" Name="mu To Workspace" SID="184">
+    <PortCounts in="1"/>
+    <P Name="Position">[1065, 35, 1155, 65]</P>
+    <P Name="ZOrder">32</P>
+    <P Name="VariableName">mu</P>
+    <P Name="MaxDataPoints">inf</P>
+    <P Name="SaveFormat">Timeseries</P>
+    <P Name="FixptAsFi">on</P>
+    <P Name="SampleTime">-1</P>
+  </Block>
+  <Block BlockType="Outport" Name="SlipRatio" SID="38">
+    <P Name="Position">[960, 188, 990, 202]</P>
+    <P Name="ZOrder">24</P>
+  </Block>
+  <Block BlockType="Outport" Name="Longitudinal Force" SID="35">
+    <P Name="Position">[1095, -87, 1125, -73]</P>
+    <P Name="ZOrder">23</P>
+    <P Name="Port">2</P>
+  </Block>
+  <Line>
+    <P Name="ZOrder">22</P>
+    <P Name="Src">27#out:1</P>
+    <P Name="Points">[12, 0]</P>
+    <Branch>
+      <P Name="ZOrder">90</P>
+      <P Name="Points">[0, 95; 262, 0]</P>
+      <Branch>
+        <P Name="ZOrder">38</P>
+        <P Name="Dst">59#in:1</P>
+      </Branch>
+      <Branch>
+        <P Name="ZOrder">37</P>
+        <P Name="Points">[0, -60]</P>
+        <P Name="Dst">38#in:1</P>
+      </Branch>
+    </Branch>
+    <Branch>
+      <P Name="ZOrder">63</P>
+      <P Name="Points">[0, -190]</P>
+      <P Name="Dst">29#in:1</P>
+    </Branch>
+  </Line>
+  <Line>
+    <P Name="ZOrder">28</P>
+    <P Name="Src">34#out:1</P>
+    <P Name="Dst">27#in:2</P>
+  </Line>
+  <Line>
+    <P Name="ZOrder">27</P>
+    <P Name="Src">33#out:1</P>
+    <P Name="Dst">27#in:1</P>
+  </Line>
+  <Line>
+    <P Name="ZOrder">65</P>
+    <P Name="Src">149#out:1</P>
+    <P Name="Dst">150#in:1</P>
+  </Line>
+  <Line>
+    <P Name="ZOrder">103</P>
+    <P Name="Src">29#out:1</P>
+    <P Name="Points">[218, 0]</P>
+    <Branch>
+      <P Name="ZOrder">153</P>
+      <P Name="Dst">57#in:1</P>
+    </Branch>
+    <Branch>
+      <P Name="ZOrder">136</P>
+      <P Name="Points">[0, -60]</P>
+      <P Name="Dst">35#in:1</P>
+    </Branch>
+  </Line>
+  <Line>
+    <P Name="ZOrder">94</P>
+    <P Name="Src">29#out:2</P>
+    <P Name="Dst">184#in:1</P>
+  </Line>
+  <Line>
+    <P Name="ZOrder">118</P>
+    <P Name="Src">150#out:1</P>
+    <P Name="Dst">29#in:2</P>
+  </Line>
+  <Line>
+    <P Name="ZOrder">138</P>
+    <P Name="Src">187#out:1</P>
+    <P Name="Dst">29#in:3</P>
+  </Line>
+</System>

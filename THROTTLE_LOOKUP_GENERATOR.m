@@ -12,22 +12,24 @@ modelFile = "TC_SIM.slx";      % Simulink model file                (-)
 
 % -- Base Parameter Set --
 params = buildBaseParams();
-Time_pts = [0.000, 0.015, 0.031, 0.047, 0.066, 0.087, 0.112, 0.138, 0.165, 0.195, 0.226, 0.259, 0.295, 0.334, 0.375, 0.421, 0.470, 0.525, 0.584, 0.651, 0.724, 0.807, 0.898, 1.000, 1.410, 1.919, 2.476, 3.048, 3.625, 4.204, 4.783, 5.361, 5.940, 6.520, 7.100, 7.680, 8.260, 8.840, 9.420, 10.000]; % Baseline lookup table time points      (s)
-Throttle_pts = [0.000, 0.356, 0.604, 0.835, 0.905, 0.931, 0.928, 0.926, 0.919, 0.911, 0.895, 0.898, 0.881, 0.893, 0.886, 0.898, 0.889, 0.901, 0.905, 0.909, 0.923, 0.938, 0.947, 0.977, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000]; % Baseline lookup table throttle points  (-)
+Time_pts = [0.000, 0.016, 0.033, 0.051, 0.072, 0.096, 0.121, 0.148, 0.177, 0.207, 0.239, 0.271, 0.302, 0.337, 0.376, 0.420, 0.469, 0.523, 0.583, 0.650, 0.724, 0.806, 0.899, 1.000, 1.406, 1.906, 2.440, 2.972, 3.554, 4.138, 4.724, 5.310, 5.895, 6.481, 7.067, 7.654, 8.240, 8.827, 9.413, 10.000];
+Throttle_pts = [0.000, 0.364, 0.600, 0.830, 0.903, 0.920, 0.917, 0.903, 0.906, 0.895, 0.886, 0.882, 0.873, 0.883, 0.876, 0.888, 0.889, 0.890, 0.905, 0.879, 0.863, 0.878, 0.887, 0.907, 0.990, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000]; % Baseline lookup table throttle points  (-)
 baselineTimePts = Time_pts;     % Baseline lookup table time vector   (s)
 baselineThrottlePts = Throttle_pts; % Baseline lookup table throttle vector (-)
 
 % -- Generator Settings --
 settings.stopTime_s = 10;                                     % Simulation stop time                 (s)
-settings.targetDistance_m = 75;                               % Primary optimization distance        (m)
+settings.targetDistance_m = 75;                               % Reporting distance target            (m)
 settings.numRows = 40;                                        % Target lookup-table row count        (-)
 settings.minTimeSpacing_s = 0.015;                            % Minimum spacing between time points  (s)
 settings.earlyFocusTime_s = 1.0;                              % Early-time region with extra density (s)
 settings.earlyRowFraction = 0.60;                             % Fraction of rows placed early        (-)
 settings.outputDecimals = 3;                                  % Exported lookup-table precision      (-)
-settings.passRadius = [0.09, 0.03];                           % Throttle search radius per pass      (-)
-settings.passStep = [0.03, 0.01];                             % Throttle search step per pass        (-)
-settings.maxOptimizationWindow_s = 5.0;                       % Last time actively optimized         (s)
+settings.passRadius = [0.09, 0.03, 0.01];                     % Throttle search radius per pass      (-)
+settings.passStep = [0.03, 0.01, 0.005];                      % Throttle search step per pass        (-)
+settings.objectiveStart_s = 0.05;                             % Slip objective start time            (s)
+settings.objectiveWindow_s = 1.50;                            % Slip-tracking objective window       (s)
+settings.maxOptimizationWindow_s = 1.50;                      % Last time actively optimized         (s)
 settings.csvPath = fullfile(pwd, "throttle_lookup_table.csv"); % CSV export path                     (-)
 settings.matPath = fullfile(pwd, "throttle_lookup_table.mat"); % MAT export path                     (-)
 
@@ -35,7 +37,7 @@ settings.matPath = fullfile(pwd, "throttle_lookup_table.mat"); % MAT export path
 fprintf("Running baseline simulation from PARAMS.m values...\n");
 baselineResult = runLaunchSimulation( ...
     model, params, Time_pts, Throttle_pts, ...
-    settings.stopTime_s, settings.targetDistance_m, false, true);
+    settings.stopTime_s, settings.targetDistance_m, settings.objectiveStart_s, settings.objectiveWindow_s, false, true);
 
 % -- Adaptive Lookup Time Grid --
 timeGrid = buildAdaptiveTimeGrid( ...
@@ -73,7 +75,7 @@ cleanupObj = onCleanup(@() disableFastRestart(model));
 bestThrottle = throttleInitial(:);
 bestResult = runLaunchSimulation( ...
     model, params, timeGrid, bestThrottle, settings.stopTime_s, ...
-    settings.targetDistance_m, true, false);
+    settings.targetDistance_m, settings.objectiveStart_s, settings.objectiveWindow_s, true, false);
 
 % -- Optimization History Log --
 history = table( ...
@@ -113,7 +115,7 @@ for passIdx = 1:numel(settings.passRadius)
 
                 candidateResult = runLaunchSimulation( ...
                     model, params, timeGrid, throttleTrial, ...
-                    settings.stopTime_s, settings.targetDistance_m, true, false);
+                    settings.stopTime_s, settings.targetDistance_m, settings.objectiveStart_s, settings.objectiveWindow_s, true, false);
             end
 
             if candidateResult.metrics.Score < (localBestScore - 1e-9)
@@ -134,9 +136,10 @@ for passIdx = 1:numel(settings.passRadius)
                 bestResult.metrics.TimeTo75m_s}]; %#ok<AGROW>
 
             fprintf( ...
-                "  t = %6.3f s : %.3f -> %.3f | score %.6f | T75 %.4f s\n", ...
+                "  t = %6.3f s : %.3f -> %.3f | score %.6f | RMS err %.5f | max err %.5f | T75 %.4f s\n", ...
                 timeGrid(idx), currentThrottle, localBestThrottle, ...
-                bestResult.metrics.Score, bestResult.metrics.TimeTo75m_s);
+                bestResult.metrics.Score, bestResult.metrics.RmsSlipError, ...
+                bestResult.metrics.MaxAbsSlipError, bestResult.metrics.TimeTo75m_s);
         end
     end
 end
@@ -146,7 +149,7 @@ tailAdjustedThrottle = enforceFullThrottleTail(bestThrottle);
 if any(abs(tailAdjustedThrottle - bestThrottle) > 1e-12)
     tailAdjustedResult = runLaunchSimulation( ...
         model, params, timeGrid, tailAdjustedThrottle, settings.stopTime_s, ...
-        settings.targetDistance_m, true, false);
+        settings.targetDistance_m, settings.objectiveStart_s, settings.objectiveWindow_s, true, false);
 
     if tailAdjustedResult.metrics.Score <= (bestResult.metrics.Score + 1e-9)
         bestThrottle = tailAdjustedThrottle;
@@ -173,10 +176,18 @@ save(settings.matPath, ...
 % -- Console Summary --
 fprintf("\nSaved CSV: %s\n", settings.csvPath);
 fprintf("Saved MAT: %s\n", settings.matPath);
-fprintf("\nBaseline T75:  %.4f s\n", baselineResult.metrics.TimeTo75m_s);
-fprintf("Optimized T75: %.4f s\n", bestResult.metrics.TimeTo75m_s);
-fprintf("Baseline peak slip:  %.4f\n", baselineResult.metrics.PeakSlip);
-fprintf("Optimized peak slip: %.4f\n\n", bestResult.metrics.PeakSlip);
+fprintf("\nBaseline ISE:          %.6f\n", baselineResult.metrics.IntegratedSquaredError);
+fprintf("Optimized ISE:         %.6f\n", bestResult.metrics.IntegratedSquaredError);
+fprintf("Baseline RMS error:    %.5f\n", baselineResult.metrics.RmsSlipError);
+fprintf("Optimized RMS error:   %.5f\n", bestResult.metrics.RmsSlipError);
+fprintf("Baseline max abs err:  %.5f\n", baselineResult.metrics.MaxAbsSlipError);
+fprintf("Optimized max abs err: %.5f\n", bestResult.metrics.MaxAbsSlipError);
+fprintf("Baseline final abs err:  %.5f\n", baselineResult.metrics.FinalAbsSlipError);
+fprintf("Optimized final abs err: %.5f\n", bestResult.metrics.FinalAbsSlipError);
+fprintf("Baseline peak slip:    %.4f\n", baselineResult.metrics.PeakSlip);
+fprintf("Optimized peak slip:   %.4f\n", bestResult.metrics.PeakSlip);
+fprintf("Baseline T75 (info):   %.4f s\n", baselineResult.metrics.TimeTo75m_s);
+fprintf("Optimized T75 (info):  %.4f s\n\n", bestResult.metrics.TimeTo75m_s);
 
 % -- Lookup Table Figure --
 plotLookupTable(lookupTable, baselineTimePts, baselineThrottlePts, settings.stopTime_s);
@@ -237,7 +248,7 @@ params.Ts = 0.01;               % Sample Time                        (s)
 end
 
 function result = runLaunchSimulation( ...
-    model, params, timePts, throttlePts, stopTime_s, targetDistance_m, useFastRestart, keepSignals)
+    model, params, timePts, throttlePts, stopTime_s, targetDistance_m, objectiveStart_s, objectiveWindow_s, useFastRestart, keepSignals)
 % runLaunchSimulation
 % Runs one TC_SIM simulation and returns signals plus summary metrics.
 
@@ -270,10 +281,17 @@ simOut = sim(simIn);
 [~, slip] = extractSignal(simOut, "slip_ratio");
 [~, accel] = extractSignal(simOut, "v_accel");
 
+% -- Control Error Signal --
+if isfield(simOut, "error") || isprop(simOut, "error")
+    [~, controlError] = extractSignal(simOut, "error");
+else
+    controlError = params.Slip_Target - slip; % Fallback slip-tracking error (-)
+end
+
 % -- Compute Performance Metrics --
 metrics = computeLaunchMetrics( ...
-    time, distance, velocity, slip, accel, ...
-    targetDistance_m, params.Slip_Target);
+    time, distance, velocity, slip, controlError, accel, ...
+    targetDistance_m, objectiveStart_s, objectiveWindow_s);
 
 % -- Assemble Output Struct --
 result.metrics = metrics;
@@ -284,6 +302,7 @@ if keepSignals
     result.distance = distance;
     result.velocity = velocity;
     result.slip = slip;
+    result.error = controlError;
     result.accel = accel;
 end
 
@@ -314,7 +333,7 @@ error("Could not extract signal '%s' from simulation output.", signalName);
 
 end
 
-function metrics = computeLaunchMetrics(time, distance, velocity, slip, accel, targetDistance_m, slipTarget)
+function metrics = computeLaunchMetrics(time, distance, velocity, slip, controlError, accel, targetDistance_m, objectiveStart_s, objectiveWindow_s)
 % computeLaunchMetrics
 % Converts time histories into a scalar objective plus summary metrics.
 
@@ -324,14 +343,31 @@ finalDistance_m = distance(end);                                          % Fina
 finalVelocity_mps = velocity(end);                                        % Final velocity at stop time    (m/s)
 peakSlip = max(slip);                                                     % Maximum slip ratio             (-)
 
+% -- Slip-Tracking Objective Window --
+windowMask = time >= objectiveStart_s & time <= objectiveWindow_s; % Samples used by slip objective (-)
+windowTime = time(windowMask);                                 % Time vector inside objective      (s)
+windowError = controlError(windowMask);                        % Error vector inside objective     (-)
+
 % -- Scalar Objective Function --
-if isnan(timeTo75m_s)
-    score = 100 + max(targetDistance_m - finalDistance_m, 0);
+if numel(windowTime) < 2
+    integratedSquaredError = inf;
+    rmsSlipError = inf;
+    meanAbsSlipError = inf;
+    maxAbsSlipError = inf;
+    finalAbsSlipError = inf;
 else
-    slipCeiling = max(slipTarget + 0.05, 0.18);               % Slip penalty threshold          (-)
-    slipPenalty = trapz(time, max(slip - slipCeiling, 0).^2); % Integrated excess slip penalty  (-)
-    score = timeTo75m_s + (0.05 * slipPenalty) - (1e-4 * finalDistance_m); % Optimization score    (-)
+    windowDuration_s = max(windowTime(end) - windowTime(1), eps);      % Objective window duration         (s)
+    integratedSquaredError = trapz(windowTime, windowError.^2);        % Integrated squared slip error     (-^2*s)
+    rmsSlipError = sqrt(integratedSquaredError / windowDuration_s);    % RMS slip error                    (-)
+    meanAbsSlipError = trapz(windowTime, abs(windowError)) / windowDuration_s; % Mean absolute slip error (-)
+    maxAbsSlipError = max(abs(windowError));                           % Maximum absolute slip error       (-)
+    finalAbsSlipError = abs(windowError(end));                         % Final absolute slip error         (-)
 end
+
+score = rmsSlipError ...                  % Primary RMS slip-tracking error          (-)
+    + 0.35 * maxAbsSlipError ...          % Penalize large instantaneous deviations  (-)
+    + 0.15 * meanAbsSlipError ...         % Penalize average offset from target      (-)
+    + 0.10 * finalAbsSlipError;           % Encourage settling near zero error       (-)
 
 % -- Output Metric Struct --
 metrics.Reached75m = ~isnan(timeTo75m_s);
@@ -339,6 +375,13 @@ metrics.TimeTo75m_s = timeTo75m_s;
 metrics.FinalDistance_m = finalDistance_m;
 metrics.FinalVelocity_mps = finalVelocity_mps;
 metrics.PeakSlip = peakSlip;
+metrics.IntegratedSquaredError = integratedSquaredError;
+metrics.RmsSlipError = rmsSlipError;
+metrics.MeanAbsSlipError = meanAbsSlipError;
+metrics.MaxAbsSlipError = maxAbsSlipError;
+metrics.FinalAbsSlipError = finalAbsSlipError;
+metrics.ObjectiveStart_s = objectiveStart_s;
+metrics.ObjectiveWindow_s = objectiveWindow_s;
 metrics.Score = score;
 
 % -- Optional Smoothness Metric (reserved for future weighting) --
