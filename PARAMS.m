@@ -34,7 +34,6 @@ cg_f = 0.734568;                % Front Axel to CG                   (m)
 % -- Control Params --
 Slip_Target = 0.13;             % Target Slip Ratio
 T_request = 150;                % Initial Driver Torque Request      (Nm)
-%Switch = 3.0;                  % Velocity to Change Controllers     (m/s)
 Start_Blend = 3.0;              % Velocity Low Start to Change PIDs  (m/s)
 End_Blend = 8.0;                % Velocity High End Changing PIDs    (m/s)
 Max_Motor_RPM = 7000;           % EMRAX 208 speed limit                (rpm)
@@ -45,10 +44,10 @@ gravity = 9.80665;              % Accel due to Gravity Used          (m/s^2)
 
 
 % -- PID Params Slip Ratio --
-P = 1.75;                       % Proportional in PID
-I = 4;                          % Integral in PID
-D = 0;                          % Derivative in PID
-Ts = 0.01;                      % Sample Time                        (s)
+% P = 1.75;                       % Proportional in PID
+% I = 4;                          % Integral in PID
+% D = 0;                          % Derivative in PID
+% Ts = 0.01;                      % Sample Time                        (s)
 
 
 % -- Launch Control Params From Car Code --
