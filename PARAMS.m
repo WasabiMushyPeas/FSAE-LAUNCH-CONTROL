@@ -90,6 +90,11 @@ else
 end
 
 % --- Black-on-white figure theme (applies to all figures in this session) ---
+exportAxesFontSize = 16;
+exportLabelFontSize = 18;
+exportTitleFontSize = 20;
+exportLegendFontSize = 16;
+
 set(groot, ...
     'defaultFigureColor',   'white', ...
     'defaultAxesColor',     'white', ...
@@ -97,14 +102,19 @@ set(groot, ...
     'defaultAxesYColor',    'black', ...
     'defaultAxesZColor',    'black', ...
     'defaultTextColor',     'black', ...
-    'defaultAxesGridColor', 'black');
+    'defaultAxesGridColor', 'black', ...
+    'defaultAxesFontSize',  exportAxesFontSize, ...
+    'defaultTextFontSize',  exportLabelFontSize, ...
+    'defaultLegendFontSize', exportLegendFontSize);
 
 % -- Figure output settings --
 outdir = fullfile(pwd, 'figures');
 if ~exist(outdir, 'dir'); mkdir(outdir); end
 
 % Helper to export the current figure and write CSV of the series used.
-save_fig = @(base, X, Y, xname, ynames) export_pdf_png_and_csv(gcf, outdir, base, X, Y, xname, ynames);
+save_fig = @(base, X, Y, xname, ynames) export_pdf_png_and_csv( ...
+    gcf, outdir, base, X, Y, xname, ynames, ...
+    exportAxesFontSize, exportLabelFontSize, exportTitleFontSize, exportLegendFontSize);
 
 % PID
 figure;
@@ -235,7 +245,8 @@ save_fig('torque_comparison_atw', Time, [T_motor_atw, T_from_trac_atw, max_avail
     'Time_s', {'Target_Torque_ATW_Nm','From_Tractive_Force_ATW_Nm','Max_Available_ATW_Nm'});
 
 
-function export_pdf_png_and_csv(hfig, outdir, base, X, Y, xname, ynames)
+function export_pdf_png_and_csv(hfig, outdir, base, X, Y, xname, ynames, ...
+    axesFontSize, labelFontSize, titleFontSize, legendFontSize)
 % Ensure shapes
 X = X(:);
 if isvector(Y)
@@ -253,6 +264,9 @@ T = array2table([X, Y], 'VariableNames', varNames);
 % Write CSV (same basename)
 writetable(T, fullfile(outdir, [base '.csv']));
 
+% Make saved plot text readable in reports and presentations.
+apply_export_font_sizes(hfig, axesFontSize, labelFontSize, titleFontSize, legendFontSize);
+
 % Export vector PDF (same basename)
 exportgraphics(hfig, fullfile(outdir, [base '.pdf']), ...
     'BackgroundColor','white', 'ContentType','vector');
@@ -260,4 +274,24 @@ exportgraphics(hfig, fullfile(outdir, [base '.pdf']), ...
 % (Optional) also keep a PNG for quick viewing
 exportgraphics(hfig, fullfile(outdir, [base '.png']), ...
     'BackgroundColor','white', 'Resolution', 300);
+end
+
+function apply_export_font_sizes(hfig, axesFontSize, labelFontSize, titleFontSize, legendFontSize)
+axesList = findall(hfig, 'Type', 'axes');
+for i = 1:numel(axesList)
+    ax = axesList(i);
+    ax.FontSize = axesFontSize;
+    ax.XLabel.FontSize = labelFontSize;
+    ax.YLabel.FontSize = labelFontSize;
+    ax.ZLabel.FontSize = labelFontSize;
+    ax.Title.FontSize = titleFontSize;
+    if isprop(ax, 'Toolbar')
+        ax.Toolbar.Visible = 'off';
+    end
+end
+
+legendList = findall(hfig, 'Type', 'legend');
+for i = 1:numel(legendList)
+    legendList(i).FontSize = legendFontSize;
+end
 end
