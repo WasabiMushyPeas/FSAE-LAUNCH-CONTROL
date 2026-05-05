@@ -43,16 +43,54 @@ tau_motor = 0.020;              % Motor/controller torque lag          (s)
 Max_Motor_Torque = 150;         % Maximum Motor Torque               (rad/s)
 gravity = 9.80665;              % Accel due to Gravity Used          (m/s^2)
 
-% -- Look Up Table --
-Time_pts = [0.000, 0.016, 0.033, 0.051, 0.072, 0.096, 0.121, 0.148, 0.177, 0.207, 0.239, 0.271, 0.302, 0.337, 0.376, 0.420, 0.469, 0.523, 0.583, 0.650, 0.724, 0.806, 0.899, 1.000, 1.406, 1.906, 2.440, 2.972, 3.554, 4.138, 4.724, 5.310, 5.895, 6.481, 7.067, 7.654, 8.240, 8.827, 9.413, 10.000];
-Throttle_pts = [0.000, 0.364, 0.600, 0.830, 0.903, 0.920, 0.917, 0.903, 0.906, 0.895, 0.886, 0.882, 0.873, 0.883, 0.876, 0.888, 0.889, 0.890, 0.905, 0.879, 0.863, 0.878, 0.887, 0.907, 0.990, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000];
-
 
 % -- PID Params Slip Ratio --
 P = 1.75;                       % Proportional in PID
 I = 4;                          % Integral in PID
 D = 0;                          % Derivative in PID
 Ts = 0.01;                      % Sample Time                        (s)
+
+
+% -- Launch Control Params From Car Code --
+CONTROLLER_INFLUENCE = int32(100);
+
+LC_TABLE_LENGTH = int32(40);
+LC_TS = int32(10);              % Launch-control sample time [ms]
+LC_Ts_sec = double(LC_TS)/1000; % Launch-control sample time [s]
+
+LC_KP = int32(700);
+LC_KI_STEP = int32(25);
+LC_KD_STEP = int32(0);
+
+LC_SLIP_TARGET = int32(1300);   % 1300 = 13.00% slip
+
+LC_START_BLEND = int32(300);    % cm/s = 3 m/s
+LC_END_BLEND = int32(500);      % cm/s = 5 m/s
+
+LC_GRIP_FACTOR = int32(1000);
+LC_GRIP_INFLUENCE = int32(1500);
+LC_MIN_GRIP_SCALE = int32(0);
+LC_MAX_GRIP_SCALE = int32(1500);
+
+LC_MIN_CMD = int32(0);
+LC_MAX_CMD = int32(1000);
+
+LC_MIN_CORR = int32(-1000);
+LC_MAX_CORR = int32(1000);
+
+launchTimeMs = int32([ ...
+    0,16,33,51,72,96,121,148,177,207,239,271,302,337,376,420,469,523, ...
+    583,650,724,806,899,1000,1406,1906,2440,2972,3554,4138,4724,5310, ...
+    5895,6481,7067,7654,8240,8827,9413,10000]);
+
+launchCmd = int32([ ...
+    0,364,600,830,903,920,917,903,906,895,886,882,873,883,876,888,889, ...
+    890,905,879,863,878,887,907,990,1000,1000,1000,1000,1000,1000, ...
+    1000,1000,1000,1000,1000,1000,1000,1000,1000]);
+
+% Optional double versions for normal Simulink lookup tables / plotting.
+Time_pts = double(launchTimeMs)/1000;   % [s]
+Throttle_pts = double(launchCmd)/1000;  % 0 to 1 scale
 
 
 % -- Simulink --
