@@ -1,17 +1,24 @@
 % --- Vehicle Parameters ---
 Mv = 285.763;                   % Vehicle Weight                     (kg)
 r = 0.203;                      % Wheel Radius                       (m)
-J = 1.2;                        % ESTIMATED Total Rotational Inertia (kg*m^2)
-J_Motor = 0.25;                 % ESTIMATED Motor Rotational Inertia (kg*m^2)
-J_Wheel = 0.165;                % ESTIMATED Wheel Rotational Inertia (kg*m^2)
-K = 2552;                       % Half-Shaft Stiffness               (Nm/rad)
-C = 30;                         % Half-Shaft Damping                 (Nms/rad)
 fd = 4.5;                       % Final Drive motor:tire             (Ratio)
 h_cg = 0.25273;                 % Height of Center of Gravity        (m)
 W = 1.53035;                    % Wheelbase                          (m)
 Grip_Fact = 1.0;                % Grip Factor of the Tire
 Grip_Influence = 1.2;           % Grip Factor Impact on Table
 Drive_Train = 0.89;             % Drivetain loss perecent
+
+% --- Drivetrain Inertias ---
+J = 0.51151;                    % Total reflected rotating inertia     (kg*m^2)
+J_Motor = 0.34661;              % Inboard motor/diff inertia, wheel-side referenced
+J_Wheel = 0.16490;              % Two driven rear wheel assemblies     (kg*m^2)
+
+% --- Half-Shaft Parameters ---
+K = 5105.49;                    % Rear half-shaft pair stiffness       (Nm/rad)
+
+% Damping chosen from approx zeta = 0.20 with vehicle mass coupled in.
+% Use C = 9.55 if testing drivetrain alone with no vehicle body coupling.
+C = 16.56;                      % Half-shaft damping                   (Nms/rad)
 
 
 % --- Aerodynamics ---
@@ -30,7 +37,9 @@ T_request = 150;                % Initial Driver Torque Request      (Nm)
 %Switch = 3.0;                  % Velocity to Change Controllers     (m/s)
 Start_Blend = 3.0;              % Velocity Low Start to Change PIDs  (m/s)
 End_Blend = 8.0;                % Velocity High End Changing PIDs    (m/s)
-Max_Wheel_Omega = 183.3;        % Maximum Wheel Angular Velocity     (rad/s)
+Max_Motor_RPM = 7000;           % EMRAX 208 speed limit                (rpm)
+Max_Wheel_Omega = (Max_Motor_RPM * 2*pi/60) / fd;  % Maximum wheel angular velocity  (rad/s)
+tau_motor = 0.020;              % Motor/controller torque lag          (s)
 Max_Motor_Torque = 150;         % Maximum Motor Torque               (rad/s)
 gravity = 9.80665;              % Accel due to Gravity Used          (m/s^2)
 
