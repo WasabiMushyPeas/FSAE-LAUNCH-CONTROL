@@ -36,11 +36,11 @@ Slip_Target = 0.13;             % Target Slip Ratio
 T_request = 150;                % Initial Driver Torque Request      (Nm)
 Start_Blend = 3.0;              % Velocity Low Start to Change PIDs  (m/s)
 End_Blend = 8.0;                % Velocity High End Changing PIDs    (m/s)
-Max_Motor_RPM = 7000;           % EMRAX 208 speed limit                (rpm)
+Max_Motor_RPM = 7000;           % EMRAX 208 speed limit              (rpm)
 Max_Wheel_Omega = (Max_Motor_RPM * 2*pi/60) / fd;  % Maximum wheel angular velocity  (rad/s)
-tau_motor = 0.020;              % Motor/controller torque lag          (s)
-Max_Motor_Torque = 150;         % Maximum Motor Torque               (rad/s)
-gravity = 9.80665;              % Accel due to Gravity Used          (m/s^2)
+tau_motor = 0.020;              % Motor/controller torque lag         (s)
+Max_Motor_Torque = 150;         % Maximum Motor Torque                (Nm)
+gravity = 9.80665;              % Accel due to Gravity Used           (m/s^2)
 
 
 % -- PID Params Slip Ratio --
@@ -97,37 +97,82 @@ timedomain = 10;                % Simulation Time (s)
 simout = sim("TC_SIM.slx", timedomain);
 
 % -- Time and Data --
-Time = simout.v_velocity.Time;           % Time Vector                   (s)
-Wheel_Speed = simout.wheel_speed.Data;   % Wheel Speed                   (m/s)
-Lift = simout.v_lift.Data;               % Vechile Lift                  (N)
-Drag = simout.v_drag.Data;               % Vechile Drag                  (N)
-Trac = simout.Longitudinal_Force.Data;   % Tractive Force                (N)
-Accel = simout.v_accel.Data;             % Vechicle Accel                (m/s^2)
-Vel = simout.v_velocity.Data;            % Vechicle Velocity             (m/s)
-Dist = simout.v_distance.Data;           % Vechicle Distance             (m)
-Motor_Tor = simout.T_motor.Data;         % Motor Torque                  (Nm)
-Normal_Force = simout.normal_force.Data; % Normal Force on the rear axel (N)
-Error = simout.error.Data;               % PID Error
-Mu = simout.mu.Data;                     % Friction Coefficient
-Slip_Ratio = simout.slip_ratio.Data;     % Slip Ratio
-Max_Motor_Tor = simout.Max_Tor.Data;     % Max Motor torque              (Nm)
-PID = simout.pid_correction.Data;        % The PID Correction
+% Pull each logged signal with its own time vector. Some signals are logged at
+% the variable-step solver times, while the LC controller signals are logged
+% at the discrete 10 ms controller sample time. Plot each signal against its
+% own time vector to avoid dimension mismatch errors.
 
+Wheel_Speed_Time = simout.wheel_speed.Time(:);
+Wheel_Speed = squeeze(simout.wheel_speed.Data);
+Wheel_Speed = Wheel_Speed(:);   % Wheel Speed (m/s)
+
+Lift_Time = simout.v_lift.Time(:);
+Lift = squeeze(simout.v_lift.Data);
+Lift = Lift(:);                 % Vehicle Lift / Downforce (N)
+
+Drag_Time = simout.v_drag.Time(:);
+Drag = squeeze(simout.v_drag.Data);
+Drag = Drag(:);                 % Vehicle Drag (N)
+
+Trac_Time = simout.Longitudinal_Force.Time(:);
+Trac = squeeze(simout.Longitudinal_Force.Data);
+Trac = Trac(:);                 % Tractive Force (N)
+
+Accel_Time = simout.v_accel.Time(:);
+Accel = squeeze(simout.v_accel.Data);
+Accel = Accel(:);               % Vehicle Accel (m/s^2)
+
+Vel_Time = simout.v_velocity.Time(:);
+Vel = squeeze(simout.v_velocity.Data);
+Vel = Vel(:);                   % Vehicle Velocity (m/s)
+Time = Vel_Time;                % Main vehicle time vector
+
+Dist_Time = simout.v_distance.Time(:);
+Dist = squeeze(simout.v_distance.Data);
+Dist = Dist(:);                 % Vehicle Distance (m)
+
+Motor_Tor_Time = simout.T_motor.Time(:);
+Motor_Tor = squeeze(simout.T_motor.Data);
+Motor_Tor = Motor_Tor(:);       % Motor Torque (Nm)
+
+Normal_Force_Time = simout.normal_force.Time(:);
+Normal_Force = squeeze(simout.normal_force.Data);
+Normal_Force = Normal_Force(:); % Rear axle normal force (N)
+
+Error_Time = simout.error.Time(:);
+Error = squeeze(simout.error.Data);
+Error = Error(:);               % LC slip error
+
+Mu_Time = simout.mu.Time(:);
+Mu = squeeze(simout.mu.Data);
+Mu = Mu(:);                     % Friction Coefficient
+
+Slip_Ratio_Time = simout.slip_ratio.Time(:);
+Slip_Ratio = squeeze(simout.slip_ratio.Data);
+Slip_Ratio = Slip_Ratio(:);     % Slip Ratio
+
+Max_Motor_Tor_Time = simout.Max_Tor.Time(:);
+Max_Motor_Tor = squeeze(simout.Max_Tor.Data);
+Max_Motor_Tor = Max_Motor_Tor(:); % Max Motor torque (Nm)
+
+PID_Time = simout.pid_correction.Time(:);
+PID = squeeze(simout.pid_correction.Data);
+PID = PID(:);                   % LC PID correction
 
 
 % -- Print Time when Distance is 75 m --
 target_distance = 75; % Target distance (m)
-time_at_target_distance = Time(Dist >= target_distance); % Find times when distance is greater than or equal to 75 m
+time_at_target_distance = Dist_Time(Dist >= target_distance);
 
 if ~isempty(time_at_target_distance)
-    fprintf('Time when distance reaches 75 m: %.4f seconds\n', time_at_target_distance(1)); %[output:8f33bcb4]
+    fprintf('Time when distance reaches 75 m: %.4f seconds\n', time_at_target_distance(1));
 else
     fprintf('Distance of 75 m was not reached during the simulation.\n');
 end
 
 % -- Print Time when Speed is 26.8224 m/s --
 target_speed = 26.8224; % Target speed (m/s)
-time_at_target_speed = Time(Vel >= target_speed); % Find times when speed is greater than or equal to 26.8224 m/s
+time_at_target_speed = Vel_Time(Vel >= target_speed);
 
 if ~isempty(time_at_target_speed)
     fprintf('Time when speed reaches 26.8224 m/s: %.4f seconds\n', time_at_target_speed(1));
@@ -135,7 +180,7 @@ else
     fprintf('Speed of 26.8224 m/s was not reached during the simulation.\n');
 end
 
-% --- Black-on-white figure theme (applies to all figures in this session) ---
+% --- Black-on-white figure theme ---
 exportAxesFontSize = 16;
 exportLabelFontSize = 18;
 exportTitleFontSize = 20;
@@ -155,149 +200,199 @@ set(groot, ...
 
 % -- Figure output settings --
 outdir = fullfile(pwd, 'figures');
-if ~exist(outdir, 'dir'); mkdir(outdir); end
+if ~exist(outdir, 'dir')
+    mkdir(outdir);
+end
 
-% Helper to export the current figure and write CSV of the series used.
 save_fig = @(base, X, Y, xname, ynames) export_pdf_png_and_csv( ...
     gcf, outdir, base, X, Y, xname, ynames, ...
     exportAxesFontSize, exportLabelFontSize, exportTitleFontSize, exportLegendFontSize);
 
 % PID
 figure;
-plot(Time, PID, 'k', 'LineWidth', 2);
+plot(PID_Time, PID, 'k', 'LineWidth', 2);
 title('PID Output');
-xlabel('Time (s)'); ylabel('PID');
+xlabel('Time (s)');
+ylabel('PID');
 xlim([0, 1.8]);
 grid on;
-save_fig('pid', Time, PID, 'Time_s', {'PID'});
+save_fig('pid', PID_Time, PID, 'Time_s', {'PID'});
+
 % Slip Ratio
 figure;
-plot(Time, Slip_Ratio, 'k', 'LineWidth', 2);
+plot(Slip_Ratio_Time, Slip_Ratio, 'k', 'LineWidth', 2);
 title(sprintf('Slip Ratio (%.2f Grip Factor)', Grip_Fact));
-xlabel('Time (s)'); ylabel('Slip Ratio');
-%ylim([0, 0.2]);
+xlabel('Time (s)');
+ylabel('Slip Ratio');
 xlim([0, 10]);
 grid on;
-save_fig('slip_ratio', Time, Slip_Ratio, 'Time_s', {'Slip_Ratio'});
-
+save_fig('slip_ratio', Slip_Ratio_Time, Slip_Ratio, 'Time_s', {'Slip_Ratio'});
 
 % Error
 figure;
-plot(Time, Error, 'k', 'LineWidth', 2);
+plot(Error_Time, Error, 'k', 'LineWidth', 2);
 title(sprintf('Error (%.2f Grip Factor)', Grip_Fact));
-xlabel('Time (s)'); ylabel('Error');
+xlabel('Time (s)');
+ylabel('Error');
 xlim([0, 1.8]);
 grid on;
-save_fig('error', Time, Error, 'Time_s', {'Error'});
-
+save_fig('error', Error_Time, Error, 'Time_s', {'Error'});
 
 % Distance
 figure;
-plot(Time, Dist, 'k', 'LineWidth', 2);
+plot(Dist_Time, Dist, 'k', 'LineWidth', 2);
 title(sprintf('Distance (%.2f Grip Factor)', Grip_Fact));
-xlabel('Time (s)'); ylabel('Distance (m)');
+xlabel('Time (s)');
+ylabel('Distance (m)');
 grid on;
-save_fig('distance', Time, Dist, 'Time_s', {'Distance_m'});
+save_fig('distance', Dist_Time, Dist, 'Time_s', {'Distance_m'});
 
 % Velocity
 figure;
-plot(Time, Vel, 'k', 'LineWidth', 2);
+plot(Vel_Time, Vel, 'k', 'LineWidth', 2);
 title(sprintf('Velocity (%.2f Grip Factor)', Grip_Fact));
-xlabel('Time (s)'); ylabel('Velocity (m/s)');
+xlabel('Time (s)');
+ylabel('Velocity (m/s)');
 grid on;
-save_fig('velocity', Time, Vel, 'Time_s', {'Velocity_mps'});
+save_fig('velocity', Vel_Time, Vel, 'Time_s', {'Velocity_mps'});
 
 % Acceleration
 figure;
-plot(Time, Accel, 'k', 'LineWidth', 2);
+plot(Accel_Time, Accel, 'k', 'LineWidth', 2);
 title(sprintf('Acceleration (%.2f Grip Factor)', Grip_Fact));
-xlabel('Time (s)'); ylabel('Accel (m/s^2)');
-%ylim([0, 12]);
+xlabel('Time (s)');
+ylabel('Accel (m/s^2)');
 grid on;
-save_fig('acceleration', Time, Accel, 'Time_s', {'Acceleration_mps2'});
-
-
-
+save_fig('acceleration', Accel_Time, Accel, 'Time_s', {'Acceleration_mps2'});
 
 % Normal Force
 figure;
-plot(Time, Normal_Force, 'k', 'LineWidth', 2);
+plot(Normal_Force_Time, Normal_Force, 'k', 'LineWidth', 2);
 title(sprintf('Normal Force on Rear Axle (%.2f Grip Factor)', Grip_Fact));
-xlabel('Time (s)'); ylabel('Normal Force (N)');
+xlabel('Time (s)');
+ylabel('Normal Force (N)');
 ylim([0, 3500]);
 grid on;
-save_fig('normal_force', Time, Normal_Force, 'Time_s', {'Normal_Force_N'});
+save_fig('normal_force', Normal_Force_Time, Normal_Force, 'Time_s', {'Normal_Force_N'});
 
 % Target Motor Torque
 figure;
-plot(Time, Motor_Tor, 'k', 'LineWidth', 2);
-title(sprintf('Target Motor Torque PID (%.2f Grip Factor)', Grip_Fact));
-xlabel('Time (s)'); ylabel('Torque %');
-ylim([0, 1.1]);
+plot(Motor_Tor_Time, Motor_Tor, 'k', 'LineWidth', 2);
+title(sprintf('Target Motor Torque (%.2f Grip Factor)', Grip_Fact));
+xlabel('Time (s)');
+ylabel('Motor Torque Request (Nm)');
+ylim([0, 1.1*Max_Motor_Torque]);
 grid on;
-save_fig('target_motor_torque_PID_2', Time, Motor_Tor, 'Time_s', {'Motor_Torque_Nm'});
+save_fig('target_motor_torque_PID_2', Motor_Tor_Time, Motor_Tor, 'Time_s', {'Motor_Torque_Nm'});
 
-
-% Tractive Force (Time)
+% Tractive Force
 figure;
-plot(Time, Trac, 'k', 'LineWidth', 2);
+plot(Trac_Time, Trac, 'k', 'LineWidth', 2);
 title(sprintf('Tractive Force (%.2f Grip Factor)', Grip_Fact));
-xlabel('Time (s)'); ylabel('Tractive Force (N)');
+xlabel('Time (s)');
+ylabel('Tractive Force (N)');
 grid on;
-save_fig('tractive_force', Time, Trac, 'Time_s', {'Tractive_Force_N'});
+save_fig('tractive_force', Trac_Time, Trac, 'Time_s', {'Tractive_Force_N'});
 
-% Mu (Time)
+% Mu
 figure;
-plot(Time, Mu, 'k', 'LineWidth', 2);
+plot(Mu_Time, Mu, 'k', 'LineWidth', 2);
 title(sprintf('Mu (%.2f Grip Factor)', Grip_Fact));
-xlabel('Time (s)'); ylabel('mu');
+xlabel('Time (s)');
+ylabel('mu');
 grid on;
-save_fig('mu', Time, Mu, 'Time_s', {'Mu'});
+save_fig('mu', Mu_Time, Mu, 'Time_s', {'Mu'});
 
-% Tractive Force vs Slip Ratio (XY)
+% Tractive Force vs Slip Ratio
+% Interpolate tractive force onto the slip-ratio time base before making the XY plot.
+Trac_on_Slip_Time = interp_signal(Trac_Time, Trac, Slip_Ratio_Time);
+
 figure;
-plot(Slip_Ratio, Trac, 'k', 'LineWidth', 2);
+plot(Slip_Ratio, Trac_on_Slip_Time, 'k', 'LineWidth', 2);
 title(sprintf('Tractive Force vs. Slip Ratio (%.2f Grip Factor)', Grip_Fact));
-xlabel('Slip Ratio'); ylabel('Tractive Force (N)');
+xlabel('Slip Ratio');
+ylabel('Tractive Force (N)');
 xlim([0.0, 0.18]);
 grid on;
-save_fig('tractive_force_vs_slip_ratio', Slip_Ratio, Trac, 'Slip_Ratio', {'Tractive_Force_N'});
+save_fig('tractive_force_vs_slip_ratio', Slip_Ratio, Trac_on_Slip_Time, 'Slip_Ratio', {'Tractive_Force_N'});
 
-% --- Combined plot: all series as torque at the wheel (ATW) ---
-T_motor_atw    = Motor_Tor(:) * fd;      % motor target -> wheel torque (Nm)
-T_from_trac_atw= Trac(:) * r;            % tractive force -> wheel torque (Nm)
-max_avail_atw  = Max_Motor_Tor(:) * fd;  % max motor torque -> wheel torque (Nm)
+% --- Combined plot: all series as torque at the wheel ATW ---
+T_motor_atw     = Motor_Tor(:) * fd;      % motor target -> wheel torque (Nm)
+T_from_trac_atw = Trac(:) * r;            % tractive force -> wheel torque (Nm)
+max_avail_atw   = Max_Motor_Tor(:) * fd;  % max motor torque -> wheel torque (Nm)
 
-figure; hold on;
-p1 = plot(Time, T_motor_atw,     'LineWidth', 2);
-p2 = plot(Time, T_from_trac_atw, 'LineWidth', 2);
-p3 = plot(Time, max_avail_atw,   'g--', 'LineWidth', 2);
-hold off; grid on;
+figure;
+hold on;
+p1 = plot(Motor_Tor_Time,     T_motor_atw,     'LineWidth', 2);
+p2 = plot(Trac_Time,          T_from_trac_atw, 'LineWidth', 2);
+p3 = plot(Max_Motor_Tor_Time, max_avail_atw,   'g--', 'LineWidth', 2);
+hold off;
+grid on;
 
 title(sprintf('Wheel Torque Comparison (%.2f Grip Factor)', Grip_Fact));
 xlabel('Time (s)');
-ylabel('Wheel Torque (N·m)');
+ylabel('Wheel Torque (N*m)');
 legend([p1 p2 p3], ...
-    {'Target torque ATW', 'Tractive force \rightarrow torque ATW', 'Max available motor torque ATW'}, ...
+    {'Target torque ATW', 'Tractive force -> torque ATW', 'Max available motor torque ATW'}, ...
     'Location','northeast');
 
 allY = [T_motor_atw; T_from_trac_atw; max_avail_atw];
 allY = allY(~isnan(allY));
+
 if ~isempty(allY)
     ylim([0, 1.1*max(allY)]);
 end
 
-save_fig('torque_comparison_atw', Time, [T_motor_atw, T_from_trac_atw, max_avail_atw], ...
+% Save the combined CSV on one common time base.
+Torque_Time = Trac_Time;
+T_motor_atw_on_Torque_Time = interp_signal(Motor_Tor_Time, T_motor_atw, Torque_Time);
+max_avail_atw_on_Torque_Time = interp_signal(Max_Motor_Tor_Time, max_avail_atw, Torque_Time);
+
+save_fig('torque_comparison_atw', Torque_Time, ...
+    [T_motor_atw_on_Torque_Time, T_from_trac_atw, max_avail_atw_on_Torque_Time], ...
     'Time_s', {'Target_Torque_ATW_Nm','From_Tractive_Force_ATW_Nm','Max_Available_ATW_Nm'});
+
+
+function yq = interp_signal(t, y, tq)
+% Interpolate a logged signal onto a requested time base.
+% This avoids plot/CSV dimension errors when some signals are continuous and
+% others are discrete at the launch-control sample time.
+
+t = t(:);
+y = y(:);
+tq = tq(:);
+
+valid = isfinite(t) & isfinite(y);
+t = t(valid);
+y = y(valid);
+
+if isempty(t)
+    yq = nan(size(tq));
+    return;
+end
+
+[t_unique, ia] = unique(t, 'stable');
+y_unique = y(ia);
+
+if numel(t_unique) == 1
+    yq = repmat(y_unique(1), size(tq));
+else
+    yq = interp1(t_unique, y_unique, tq, 'linear', 'extrap');
+end
+
+end
 
 
 function export_pdf_png_and_csv(hfig, outdir, base, X, Y, xname, ynames, ...
     axesFontSize, labelFontSize, titleFontSize, legendFontSize)
 % Ensure shapes
+
 X = X(:);
+
 if isvector(Y)
     Y = Y(:);
 end
+
 n = min(numel(X), size(Y,1));
 X = X(1:n);
 Y = Y(1:n, :);
@@ -307,23 +402,27 @@ varNames = [{xname}, ynames(:)'];
 varNames = matlab.lang.makeValidName(varNames);
 T = array2table([X, Y], 'VariableNames', varNames);
 
-% Write CSV (same basename)
+% Write CSV
 writetable(T, fullfile(outdir, [base '.csv']));
 
-% Make saved plot text readable in reports and presentations.
+% Make saved plot text readable
 apply_export_font_sizes(hfig, axesFontSize, labelFontSize, titleFontSize, legendFontSize);
 
-% Export vector PDF (same basename)
+% Export vector PDF
 exportgraphics(hfig, fullfile(outdir, [base '.pdf']), ...
     'BackgroundColor','white', 'ContentType','vector');
 
-% (Optional) also keep a PNG for quick viewing
+% Export PNG
 exportgraphics(hfig, fullfile(outdir, [base '.png']), ...
     'BackgroundColor','white', 'Resolution', 300);
+
 end
 
+
 function apply_export_font_sizes(hfig, axesFontSize, labelFontSize, titleFontSize, legendFontSize)
+
 axesList = findall(hfig, 'Type', 'axes');
+
 for i = 1:numel(axesList)
     ax = axesList(i);
     ax.FontSize = axesFontSize;
@@ -331,13 +430,16 @@ for i = 1:numel(axesList)
     ax.YLabel.FontSize = labelFontSize;
     ax.ZLabel.FontSize = labelFontSize;
     ax.Title.FontSize = titleFontSize;
+
     if isprop(ax, 'Toolbar')
         ax.Toolbar.Visible = 'off';
     end
 end
 
 legendList = findall(hfig, 'Type', 'legend');
+
 for i = 1:numel(legendList)
     legendList(i).FontSize = legendFontSize;
 end
+
 end
