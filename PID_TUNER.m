@@ -2,18 +2,23 @@
 clear; clc;
 
 %% ---------------- Vehicle Parameters ----------------
-Mv = 285.763;                   % Vehicle mass                       (kg)
+Mv = 285.763;                   % Vehicle Weight                     (kg)
 r = 0.203;                      % Wheel Radius                       (m)
-J = 1.2;                        % Estimated total rotational inertia (kg*m^2)
-J_Motor = 0.25;                 % Estimated motor rotational inertia (kg*m^2)
-J_Wheel = 0.165;                % Estimated wheel rotational inertia (kg*m^2)
-K = 2552;                       % Half-shaft stiffness               (Nm/rad)
-C = 30;                         % Half-shaft damping                 (Nms/rad)
-fd = 4.5;                       % Final drive ratio motor:tire       (-)
-h_cg = 0.25273;                 % Height of center of gravity        (m)
+fd = 4.5;                       % Final Drive motor:tire             (Ratio)
+h_cg = 0.25273;                 % Height of Center of Gravity        (m)
 W = 1.53035;                    % Wheelbase                          (m)
-Grip_Fact = 1.0;                % Tire grip factor                   (-)
-Drive_Train = 0.89;             % Drivetrain efficiency              (-)
+Grip_Fact = 1.0;                % Grip Factor of the Tire
+Grip_Influence = 1.2;           % Grip Factor Impact on Table
+Drive_Train = 0.89;             % Drivetrain loss percent
+
+%% ---------------- Drivetrain Inertias ----------------
+J = 0.51151;                    % Total reflected rotating inertia   (kg*m^2)
+J_Motor = 0.34661;              % Inboard motor/diff inertia, wheel-side referenced
+J_Wheel = 0.16490;              % Two driven rear wheel assemblies   (kg*m^2)
+
+%% ---------------- Half-Shaft Parameters ----------------
+K = 5105.49;                    % Rear half-shaft pair stiffness     (Nm/rad)
+C = 16.56;                      % Half-shaft damping                 (Nms/rad)
 
 %% ---------------- Aerodynamics ----------------
 A = 1;                          % Frontal area                       (m^2)
@@ -28,10 +33,17 @@ cg_f = 0.734568;                % Front axle to CG                   (m)
 %% ---------------- Control Params ----------------
 Slip_Target = 0.13;             % Target slip ratio
 T_request = 150;                % Driver torque request              (Nm)
-Switch = 3.0;                   % Velocity to change controllers     (m/s)
-Max_Wheel_Omega = 183.3;        % Maximum wheel angular velocity     (rad/s)
+Start_Blend = 3.0;              % Velocity Low Start to Change PIDs  (m/s)
+End_Blend = 8.0;                % Velocity High End Changing PIDs    (m/s)
+Max_Motor_RPM = 7000;           % EMRAX 208 speed limit              (rpm)
+Max_Wheel_Omega = (Max_Motor_RPM * 2*pi/60) / fd;  % Maximum wheel angular velocity  (rad/s)
+tau_motor = 0.020;              % Motor/controller torque lag        (s)
 Max_Motor_Torque = 150;         % Maximum motor torque               (Nm)
 gravity = 9.80665;              % Gravity                            (m/s^2)
+
+%% ---------------- Look Up Table ----------------
+Time_pts = [0.000, 0.016, 0.033, 0.051, 0.072, 0.096, 0.121, 0.148, 0.177, 0.207, 0.239, 0.271, 0.302, 0.337, 0.376, 0.420, 0.469, 0.523, 0.583, 0.650, 0.724, 0.806, 0.899, 1.000, 1.406, 1.906, 2.440, 2.972, 3.554, 4.138, 4.724, 5.310, 5.895, 6.481, 7.067, 7.654, 8.240, 8.827, 9.413, 10.000];
+Throttle_pts = [0.000, 0.364, 0.600, 0.830, 0.903, 0.920, 0.917, 0.903, 0.906, 0.895, 0.886, 0.882, 0.873, 0.883, 0.876, 0.888, 0.889, 0.890, 0.905, 0.879, 0.863, 0.878, 0.887, 0.907, 0.990, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000];
 
 %% ---------------- PID Setup ----------------
 D = 0;                          % Derivative gain fixed
