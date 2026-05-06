@@ -82,10 +82,16 @@ launchTimeMs = int32([ ...
     583,650,724,806,899,1000,1406,1906,2440,2972,3554,4138,4724,5310, ...
     5895,6481,7067,7654,8240,8827,9413,10000]);
 
+% launchCmd = int32([ ...
+%     0,364,600,830,903,920,917,903,906,895,886,882,873,883,876,888,889, ...
+%     890,905,879,863,878,887,907,990,1000,1000,1000,1000,1000,1000, ...
+%     1000,1000,1000,1000,1000,1000,1000,1000,1000]);
+
 launchCmd = int32([ ...
-    0,364,600,830,903,920,917,903,906,895,886,882,873,883,876,888,889, ...
-    890,905,879,863,878,887,907,990,1000,1000,1000,1000,1000,1000, ...
-    1000,1000,1000,1000,1000,1000,1000,1000,1000]);
+    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, ...
+    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, ...
+    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, ...
+    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000]);
 
 % Optional double versions for normal Simulink lookup tables / plotting.
 Time_pts = double(launchTimeMs)/1000;   % [s]
@@ -146,6 +152,10 @@ Error = Error(:);               % LC slip error
 Mu_Time = simout.mu.Time(:);
 Mu = squeeze(simout.mu.Data);
 Mu = Mu(:);                     % Friction Coefficient
+
+Alpha_Time = simout.alpha.Time(:);
+Alpha = squeeze(simout.alpha.Data);
+Alpha = Alpha(:);               % LC blend factor
 
 Slip_Ratio_Time = simout.slip_ratio.Time(:);
 Slip_Ratio = squeeze(simout.slip_ratio.Data);
@@ -302,6 +312,16 @@ xlabel('Time (s)');
 ylabel('mu');
 grid on;
 save_fig('mu', Mu_Time, Mu, 'Time_s', {'Mu'});
+
+% Alpha
+figure;
+plot(Alpha_Time, Alpha, 'k', 'LineWidth', 2);
+title(sprintf('Blend Alpha (%.2f Grip Factor)', Grip_Fact));
+xlabel('Time (s)');
+ylabel('Alpha');
+ylim([0, 1]);
+grid on;
+save_fig('alpha', Alpha_Time, Alpha, 'Time_s', {'Alpha'});
 
 % Tractive Force vs Slip Ratio
 % Interpolate tractive force onto the slip-ratio time base before making the XY plot.
