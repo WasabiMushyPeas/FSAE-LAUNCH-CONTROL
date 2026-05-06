@@ -96,9 +96,15 @@ launchCmd_original = int32([ ...
     1000,1000,1000,1000,1000,1000,1000,1000,1000]);
 
 %% --- Tire Model Coefficients Used By The Inversion ---
-% These match the simplified Pacejka function:
+% Rear-axle convention used by this ideal table:
+% normalForce/FzRear is the total rear axle normal force.
+% Fz_tire = FzRear/2
 % mu = (D1 - D2*Fz_tire)*Grip_Fact
-% Fx_total = 2*(mu*Fz_tire*sin(C*atan(B*slip)))
+% Fx_total_rear_axle = 2*(mu*Fz_tire*sin(C*atan(B*slip)))
+%
+% In the Simulink Tire Model / Friction Coefficient Calc block, make sure
+% the final force output also represents the full rear axle, not one tire:
+% Fx = 2*Fx_tire;
 Tire_B = 10.4;
 Tire_C = 1.58;
 Tire_D1 = 3.02;
@@ -243,6 +249,17 @@ function ideal = make_ideal_launch_table( ...
 
 % Forward-integrates an idealized launch where tire slip is held exactly at
 % slipTarget. The table is generated from the torque required at the motor.
+% This uses the Simulink driven-wheel positive-slip convention:
+% slip = (V_wheel - V_vehicle) / max(abs(V_vehicle), abs(V_wheel), 0.1).
+% During the 0.1 m/s startup floor, V_wheel = V_vehicle + slip*0.1.
+% Away from that floor, positive slip gives
+% V_wheel = V_vehicle/(1 - slip).
+
+if slipTarget < 0.0 || slipTarget >= 1.0
+    error('slipTarget must be in [0, 1) for this positive-slip launch inversion.');
+end
+
+slipDenominatorFloor_mps = 0.1;
 
 nSteps = floor(tEnd/dt) + 1;
 tGrid = (0:nSteps-1).' * dt;
@@ -263,8 +280,13 @@ for k = 1:nSteps
         v, slipTarget, Mv, gravity, h_cg, W, cg_f, ...
         A, rho, Cd, Cl, Cp, Crr, Grip_Fact, B, C, D1, D2);
 
-    % If slip is held constant, wheel surface speed is (1+s)*vehicle speed.
-    omegaDotTarget = (1.0 + slipTarget) * accel / r;
+    % Match Simulink's slip denominator, including the low-speed floor.
+    if v < slipDenominatorFloor_mps * (1.0 - slipTarget)
+        wheelSurfaceAccelTarget = accel;
+    else
+        wheelSurfaceAccelTarget = accel / (1.0 - slipTarget);
+    end
+    omegaDotTarget = wheelSurfaceAccelTarget / r;
 
     % Wheel-side drive torque needed for tire force plus rotating inertia.
     T_wheel_drive_req = Fx*r + J_total*omegaDotTarget;
@@ -377,7 +399,7 @@ end
 
 function FxNoShape = tire_force_from_rear_fz(FzRear, D1, D2)
 
-% Total rear axle version of the user's simplified Pacejka model:
+% Full rear axle version of the simplified Pacejka model:
 % Fz_tire = FzRear/2
 % mu = D1 - D2*Fz_tire
 % Fx_total / shape = 2*mu*Fz_tire = D1*FzRear - 0.5*D2*FzRear^2
