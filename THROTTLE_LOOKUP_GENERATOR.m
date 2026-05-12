@@ -208,7 +208,7 @@ function params = buildBaseParams()
 % --- Vehicle Parameters ---
 params.Mv = 285.763;            % Vehicle Weight                     (kg)
 params.r = 0.203;               % Wheel Radius                       (m)
-params.fd = 8;                  % Final Drive motor:tire             (Ratio)
+params.fd = 4.5;                % Final Drive motor:tire             (Ratio)
 params.h_cg = 0.25273;          % Height of Center of Gravity        (m)
 params.W = 1.53035;             % Wheelbase                          (m)
 params.Grip_Fact = 1.0;         % Grip Factor of the Tire            (-)

@@ -26,7 +26,7 @@ outdir = fullfile(pwd, 'figures');
 %% ---------------- Vehicle Parameters ----------------
 params.Mv = 285.763;            % Vehicle mass [kg]
 params.r = 0.203;               % Wheel radius [m]
-params.fd = 8;                  % Final drive, motor speed / wheel speed
+params.fd = 4.5;                % Final drive, motor speed / wheel speed
 params.h_cg = 0.25273;          % CG height [m]
 params.W = 1.53035;             % Wheelbase [m]
 params.Grip_Fact = 1.0;         % Tire grip factor
