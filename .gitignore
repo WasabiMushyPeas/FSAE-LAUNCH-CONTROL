@@ -1,5 +1,7 @@
 # Generated plots and exported analysis results
 figures/
+*.csv
+*.fig
 
 # MATLAB autosaves and editor backups
 *.asv
@@ -9,19 +11,27 @@ figures/
 *.autosave
 *.slx.autosave
 *.mdl.autosave
+*.slx.r*
+*.mdl.r*
 
 # Simulink cache and generated build artifacts
 slprj/
+sccprj/
 *.slxc
 *_ert_rtw/
 *_grt_rtw/
 *_rtw/
+*_sharedutils/
 codegen/
+html/
 
 # Generated binary build products
 *.mex*
 *.obj
 *.o
+*.lib
+*.exp
+*.pdb
 
 # Temporary unpacked Simulink archives / local inspection dumps
 _tc_sim_unpack/
