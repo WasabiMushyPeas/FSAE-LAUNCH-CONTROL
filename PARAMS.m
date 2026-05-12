@@ -1,7 +1,7 @@
 % --- Vehicle Parameters ---
 Mv = 285.763;                   % Vehicle Weight                     (kg)
 r = 0.203;                      % Wheel Radius                       (m)
-fd = 4.5;                       % Final Drive motor:tire             (Ratio)
+fd = 9;                       % Final Drive motor:tire             (Ratio)
 h_cg = 0.25273;                 % Height of Center of Gravity        (m)
 W = 1.53035;                    % Wheelbase                          (m)
 Grip_Fact = 1.0;                % Grip Factor of the Tire
@@ -38,7 +38,9 @@ Start_Blend = 3.0;              % Velocity Low Start to Change PIDs  (m/s)
 End_Blend = 8.0;                % Velocity High End Changing PIDs    (m/s)
 Max_Motor_RPM = 7000;           % EMRAX 208 speed limit              (rpm)
 Max_Wheel_Omega = (Max_Motor_RPM * 2*pi/60) / fd;  % Maximum wheel angular velocity  (rad/s)
-tau_motor = 0.020;              % Motor/controller torque lag         (s)
+tau_motor = 0.03;               % Motor/controller torque lag         (s)
+tau_tire = 0.03;                % Tire Relaxation delay               (s)
+tau_load = 0.03;                % Load Transfer Lag                   (s)
 Max_Motor_Torque = 150;         % Maximum Motor Torque                (Nm)
 gravity = 9.80665;              % Accel due to Gravity Used           (m/s^2)
 
@@ -169,6 +171,10 @@ PID_Time = simout.pid_correction.Time(:);
 PID = squeeze(simout.pid_correction.Data);
 PID = PID(:);                   % LC PID correction
 
+%Tau_Tire_Time = simout.tau_tire.Time(:);
+%Tau_Tire = squeeze(simout.tau_tire.Data);
+%Tau_Tire = Tau_Tire(:);         % Tire relaxation time constant (s)
+
 
 % -- Print Time when Distance is 75 m --
 target_distance = 75; % Target distance (m)
@@ -217,6 +223,27 @@ end
 save_fig = @(base, X, Y, xname, ynames) export_pdf_png_and_csv( ...
     gcf, outdir, base, X, Y, xname, ynames, ...
     exportAxesFontSize, exportLabelFontSize, exportTitleFontSize, exportLegendFontSize);
+
+% tau_tire vs Vehicle Speed
+% Vel_on_Tau_Tire_Time = interp_signal(Vel_Time, Vel, Tau_Tire_Time);
+
+% figure;
+% plot(Vel_on_Tau_Tire_Time, Tau_Tire, 'k', 'LineWidth', 2);
+% title(sprintf('tau_tire vs. Vehicle Speed (%.2f Grip Factor)', Grip_Fact));
+% xlabel('Vehicle Speed (m/s)');
+% ylabel('tau_tire (s)');
+% grid on;
+% save_fig('tau_tire_vs_vehicle_speed', Vel_on_Tau_Tire_Time, Tau_Tire, ...
+%     'Vehicle_Speed_mps', {'Tau_Tire_s'});
+
+% % tau_tire vs Time
+% figure;
+% plot(Tau_Tire_Time, Tau_Tire, 'k', 'LineWidth', 2);
+% title(sprintf('tau_tire vs. Time (%.2f Grip Factor)', Grip_Fact));
+% xlabel('Time (s)');
+% ylabel('tau_tire (s)');
+% grid on;
+% save_fig('tau_tire_vs_time', Tau_Tire_Time, Tau_Tire, 'Time_s', {'Tau_Tire_s'});
 
 % PID
 figure;

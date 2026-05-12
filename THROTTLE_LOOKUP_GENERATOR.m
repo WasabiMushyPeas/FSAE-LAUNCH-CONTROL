@@ -13,7 +13,7 @@ modelFile = "TC_SIM.slx";      % Simulink model file                (-)
 % -- Base Parameter Set --
 params = buildBaseParams();
 Time_pts = [0.000, 0.016, 0.033, 0.051, 0.072, 0.096, 0.121, 0.148, 0.177, 0.207, 0.239, 0.271, 0.302, 0.337, 0.376, 0.420, 0.469, 0.523, 0.583, 0.650, 0.724, 0.806, 0.899, 1.000, 1.406, 1.906, 2.440, 2.972, 3.554, 4.138, 4.724, 5.310, 5.895, 6.481, 7.067, 7.654, 8.240, 8.827, 9.413, 10.000];
-Throttle_pts = [0.000, 0.364, 0.600, 0.830, 0.903, 0.920, 0.917, 0.903, 0.906, 0.895, 0.886, 0.882, 0.873, 0.883, 0.876, 0.888, 0.889, 0.890, 0.905, 0.879, 0.863, 0.878, 0.887, 0.907, 0.990, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000]; % Baseline lookup table throttle points  (-)
+Throttle_pts = [1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000]; % Baseline lookup table throttle points  (-)
 baselineTimePts = Time_pts;     % Baseline lookup table time vector   (s)
 baselineThrottlePts = Throttle_pts; % Baseline lookup table throttle vector (-)
 
@@ -208,17 +208,21 @@ function params = buildBaseParams()
 % --- Vehicle Parameters ---
 params.Mv = 285.763;            % Vehicle Weight                     (kg)
 params.r = 0.203;               % Wheel Radius                       (m)
-params.J = 1.2;                 % ESTIMATED Total Rotational Inertia (kg*m^2)
-params.J_Motor = 0.25;          % ESTIMATED Motor Rotational Inertia (kg*m^2)
-params.J_Wheel = 0.165;         % ESTIMATED Wheel Rotational Inertia (kg*m^2)
-params.K = 2552;                % Half-Shaft Stiffness               (Nm/rad)
-params.C = 30;                  % Half-Shaft Damping                 (Nms/rad)
-params.fd = 4.5;                % Final Drive motor:tire             (Ratio)
+params.fd = 9;                  % Final Drive motor:tire             (Ratio)
 params.h_cg = 0.25273;          % Height of Center of Gravity        (m)
 params.W = 1.53035;             % Wheelbase                          (m)
 params.Grip_Fact = 1.0;         % Grip Factor of the Tire            (-)
 params.Grip_Influence = 1.2;    % Grip Factor Impact on Table        (-)
 params.Drive_Train = 0.89;      % Drivetrain loss percent            (-)
+
+% --- Drivetrain Inertias ---
+params.J = 0.51151;             % Total reflected rotating inertia    (kg*m^2)
+params.J_Motor = 0.34661;       % Inboard motor/diff inertia, wheel-side referenced
+params.J_Wheel = 0.16490;       % Two driven rear wheel assemblies    (kg*m^2)
+
+% --- Half-Shaft Parameters ---
+params.K = 5105.49;             % Rear half-shaft pair stiffness      (Nm/rad)
+params.C = 16.56;               % Half-shaft damping                  (Nms/rad)
 
 % --- Aerodynamics ---
 params.A = 1;                   % Frontal Area                       (m^2)
@@ -235,9 +239,51 @@ params.Slip_Target = 0.13;      % Target Slip Ratio                  (-)
 params.T_request = 150;         % Initial Driver Torque Request      (Nm)
 params.Start_Blend = 3.0;       % Velocity Low Start to Change PIDs  (m/s)
 params.End_Blend = 8.0;         % Velocity High End Changing PIDs    (m/s)
-params.Max_Wheel_Omega = 183.3; % Maximum Wheel Angular Velocity     (rad/s)
+params.Max_Motor_RPM = 7000;    % EMRAX 208 speed limit              (rpm)
+params.Max_Wheel_Omega = (params.Max_Motor_RPM * 2*pi/60) / params.fd; % Maximum Wheel Angular Velocity (rad/s)
+params.tau_motor = 0.03;        % Motor/controller torque lag        (s)
+params.tau_tire = 0.03;         % Tire relaxation delay              (s)
+params.tau_load = 0.03;         % Load transfer lag                  (s)
 params.Max_Motor_Torque = 150;  % Maximum Motor Torque               (Nm)
 params.gravity = 9.80665;       % Accel due to Gravity Used          (m/s^2)
+
+% -- Launch Control Params From Car Code --
+params.CONTROLLER_INFLUENCE = int32(100);
+
+params.LC_TABLE_LENGTH = int32(40);
+params.LC_TS = int32(10);       % Launch-control sample time         (ms)
+params.LC_Ts_sec = double(params.LC_TS)/1000; % Launch-control sample time (s)
+
+params.LC_KP = int32(700);
+params.LC_KI_STEP = int32(25);
+params.LC_KD_STEP = int32(0);
+
+params.LC_SLIP_TARGET = int32(1300); % 1300 = 13.00% slip
+
+params.LC_START_BLEND = int32(300);  % cm/s = 3 m/s
+params.LC_END_BLEND = int32(500);    % cm/s = 5 m/s
+
+params.LC_GRIP_FACTOR = int32(1000);
+params.LC_GRIP_INFLUENCE = int32(1500);
+params.LC_MIN_GRIP_SCALE = int32(0);
+params.LC_MAX_GRIP_SCALE = int32(1500);
+
+params.LC_MIN_CMD = int32(0);
+params.LC_MAX_CMD = int32(1000);
+
+params.LC_MIN_CORR = int32(-1000);
+params.LC_MAX_CORR = int32(1000);
+
+params.launchTimeMs = int32([ ...
+    0,16,33,51,72,96,121,148,177,207,239,271,302,337,376,420,469,523, ...
+    583,650,724,806,899,1000,1406,1906,2440,2972,3554,4138,4724,5310, ...
+    5895,6481,7067,7654,8240,8827,9413,10000]);
+
+params.launchCmd = int32([ ...
+    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, ...
+    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, ...
+    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, ...
+    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000]);
 
 % -- PID Params Slip Ratio --
 params.P = 1.75;                % Proportional in PID                (-)

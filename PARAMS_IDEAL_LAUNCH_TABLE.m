@@ -17,7 +17,7 @@ clear; clc; close all;
 %% --- Vehicle Parameters ---
 Mv = 285.763;                   % Vehicle mass [kg]
 r = 0.203;                      % Wheel rolling radius [m]
-fd = 4.5;                       % Final drive, motor speed / wheel speed
+fd = 9;                         % Final drive, motor speed / wheel speed
 h_cg = 0.25273;                 % CG height [m]
 W = 1.53035;                    % Wheelbase [m]
 Grip_Fact = 1.0;                % Tire grip scaling factor
@@ -54,7 +54,9 @@ Start_Blend = 3.0;              % Legacy blend start [m/s]
 End_Blend = 8.0;                % Legacy blend end [m/s]
 Max_Motor_RPM = 7000;           % EMRAX 208 speed limit [rpm]
 Max_Wheel_Omega = (Max_Motor_RPM * 2*pi/60) / fd;  % Wheel speed limit [rad/s]
-tau_motor = 0.020;              % Motor/controller torque lag [s]
+tau_motor = 0.03;               % Motor/controller torque lag [s]
+tau_tire = 0.03;                % Tire relaxation delay [s]
+tau_load = 0.03;                % Load transfer lag [s]
 Max_Motor_Torque = 150;         % Maximum motor torque [Nm]
 
 %% --- Launch Control Params From Car Code ---
@@ -89,11 +91,12 @@ launchTimeMs = int32([ ...
     583,650,724,806,899,1000,1406,1906,2440,2972,3554,4138,4724,5310, ...
     5895,6481,7067,7654,8240,8827,9413,10000]);
 
-% Original table kept for reference only.
+% Current PARAMS.m table kept for reference only.
 launchCmd_original = int32([ ...
-    0,364,600,830,903,920,917,903,906,895,886,882,873,883,876,888,889, ...
-    890,905,879,863,878,887,907,990,1000,1000,1000,1000,1000,1000, ...
-    1000,1000,1000,1000,1000,1000,1000,1000,1000]);
+    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, ...
+    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, ...
+    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, ...
+    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000]);
 
 %% --- Tire Model Coefficients Used By The Inversion ---
 % Rear-axle convention used by this ideal table:
