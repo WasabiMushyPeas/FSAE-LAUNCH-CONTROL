@@ -17,7 +17,7 @@ clear; clc; close all;
 %% --- Vehicle Parameters ---
 Mv = 285.763;                   % Vehicle mass [kg]
 r = 0.203;                      % Wheel rolling radius [m]
-fd = 9;                         % Final drive, motor speed / wheel speed
+fd = 8;                         % Final drive, motor speed / wheel speed
 h_cg = 0.25273;                 % CG height [m]
 W = 1.53035;                    % Wheelbase [m]
 Grip_Fact = 1.0;                % Tire grip scaling factor

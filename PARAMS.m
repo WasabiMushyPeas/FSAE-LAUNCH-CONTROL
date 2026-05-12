@@ -1,7 +1,7 @@
 % --- Vehicle Parameters ---
 Mv = 285.763;                   % Vehicle Weight                     (kg)
 r = 0.203;                      % Wheel Radius                       (m)
-fd = 9;                       % Final Drive motor:tire             (Ratio)
+fd = 4.5;                       % Final Drive motor:tire             (Ratio)
 h_cg = 0.25273;                 % Height of Center of Gravity        (m)
 W = 1.53035;                    % Wheelbase                          (m)
 Grip_Fact = 1.0;                % Grip Factor of the Tire
