@@ -12,8 +12,8 @@ model = "TC_SIM";
 timedomain = 10;                % Simulation stop time [s]
 target_distance = 75;           % Distance target [m]
 
-fd_vals = 2.5:0.1:12.5;         % Final drive ratios to test
-Grip_Fact_vals = 0.50:0.10:1.0; % Tire grip factors to test
+fd_vals = 2.5:0.1:9.5;         % Final drive ratios to test
+Grip_Fact_vals = 0.40:0.10:1.0; % Tire grip factors to test
 
 requestedWorkers = [];          % [] = automatic. Set to a number to force it.
 batchSize = 128;                % Lower this if RAM becomes tight
