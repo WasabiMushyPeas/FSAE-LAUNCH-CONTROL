@@ -179,9 +179,11 @@ Wheel_Speed_Time = simout.wheel_speed.Time(:);
 Wheel_Speed = squeeze(simout.wheel_speed.Data);
 Wheel_Speed = Wheel_Speed(:);
 
-Lift_Time = simout.v_lift.Time(:);
-Lift = squeeze(simout.v_lift.Data);
-Lift = Lift(:);
+try
+    [Downforce_Time, Downforce] = logged_signal(simout, 'v_down_force');
+catch
+    [Downforce_Time, Downforce] = logged_signal(simout, 'v_lift');
+end
 
 Drag_Time = simout.v_drag.Time(:);
 Drag = squeeze(simout.v_drag.Data);
@@ -344,6 +346,15 @@ xlabel('Time (s)');
 ylabel('Accel (m/s^2)');
 grid on;
 save_fig('acceleration', Accel_Time, Accel, 'Time_s', {'Acceleration_mps2'});
+
+% Downforce
+figure;
+plot(Downforce_Time, Downforce, 'k', 'LineWidth', 2);
+title(sprintf('Downforce (%.2f Grip Factor)', Grip_Fact));
+xlabel('Time (s)');
+ylabel('Downforce (N)');
+grid on;
+save_fig('downforce', Downforce_Time, Downforce, 'Time_s', {'Downforce_N'});
 
 % Half-car front vertical load
 figure;
