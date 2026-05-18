@@ -1,8 +1,8 @@
 % --- Vehicle Parameters ---
-Mv = 285.763;                   % Vehicle Weight                     (kg)
+Mv = 278.10;                    % Vehicle Weight                     (kg)
 r = 0.203;                      % Wheel Radius                       (m)
 fd = 4.5;                       % Final Drive motor:tire             (Ratio)
-h_cg = 0.25273;                 % Height of Center of Gravity        (m)
+h_cg = 0.254;                   % Height of Center of Gravity        (m)
 W = 1.53035;                    % Wheelbase                          (m)
 Grip_Fact = 1.0;                % Grip Factor of the Tire
 Grip_Influence = 1.2;           % Grip Factor Impact on Table
@@ -29,7 +29,7 @@ Cl = 3.8;                       % Lift Coefficient
 Cp = 0.53;                      % Load Percent on Rear Wheels Aero
 
 % -- Static Loads --
-cg_f = 0.734568;                % Front Axel to CG                   (m)
+cg_f = 0.74681;                 % Front Axel to CG                   (m)
 
 % -- Control Params --
 Slip_Target = 0.13;             % Target Slip Ratio
@@ -45,11 +45,108 @@ Max_Motor_Torque = 150;         % Maximum Motor Torque                (Nm)
 gravity = 9.80665;              % Accel due to Gravity Used           (m/s^2)
 
 
-% -- PID Params Slip Ratio --
-% P = 1.75;                       % Proportional in PID
-% I = 4;                          % Integral in PID
-% D = 0;                          % Derivative in PID
-% Ts = 0.01;                      % Sample Time                        (s)
+% --- Rear Normal-Load Suspension Dynamics ---
+
+% Rear load oscillation from real launch pushrod/normal-force data
+f_load = 6.45;                 % [Hz]
+zeta_load = 0.35;              % damping ratio, tune 0.25 to 0.50
+omega_load = 2*pi*f_load;      % [rad/s]
+
+% Useful precomputed values
+Fz_static_rear = Mv*gravity*cg_f/W;   % [N]
+
+% Transfer function coefficients for load-transfer dynamics
+load_tf_num = [omega_load^2];
+load_tf_den = [1, 2*zeta_load*omega_load, omega_load^2];
+
+
+% --- Half-Car Suspension Parameters ---
+
+% Unit conversions
+lb_to_kg = 0.45359237;
+in_to_m = 0.0254;
+lbf_in_to_N_m = 175.126835;       % 1 lbf/in = 175.126835 N/m
+lbf_ft_s_to_N_s_m = 14.593903;    % 1 lbf/(ft/s) = 14.593903 N*s/m
+slug_ft2_to_kg_m2 = 1.35581795;   % 1 slug*ft^2 = 1.35581795 kg*m^2
+
+
+% CG location from VDS:
+% Front axle to CG = 29.402 in
+% Rear axle to CG  = 30.848 in
+halfcar_a = 29.402 * in_to_m;     % front axle to CG [m]
+halfcar_b = 30.848 * in_to_m;     % CG to rear axle [m]
+
+% Keep your existing cg_f variable consistent with half-car model
+cg_f = halfcar_a;
+
+% Unsprung masses from VDS, axle lumped
+halfcar_muf = 32.0 * lb_to_kg;    % front unsprung axle mass [kg]
+halfcar_mur = 32.0 * lb_to_kg;    % rear unsprung axle mass [kg]
+
+% Sprung mass
+halfcar_ms = Mv - halfcar_muf - halfcar_mur;
+
+% Pitch inertia from VDS
+% VDS gives Iyy = 110 slug*ft^2. That is likely total-car pitch inertia.
+% For a sprung-mass half-car model, subtract the axle unsprung mass pitch contribution.
+halfcar_Iyy_total = 110.0 * slug_ft2_to_kg_m2;
+halfcar_Iyy = halfcar_Iyy_total ...
+    - halfcar_muf*halfcar_a^2 ...
+    - halfcar_mur*halfcar_b^2;
+
+% If the model gets too aggressive, you can use this instead:
+% halfcar_Iyy = halfcar_Iyy_total;
+
+% Heave motion ratios from VDS
+MR_heave_F = 1.0;
+MR_heave_R = 1.0;
+
+% Suspension axle heave stiffnesses from VDS physical stiffnesses
+% These are axle-lumped suspension rates.
+K_susp_F_lbf_in = 400.0 * MR_heave_F^2;    % front axle suspension heave stiffness [lbf/in]
+K_susp_R_lbf_in = 425.0 * MR_heave_R^2;    % rear axle suspension heave stiffness [lbf/in]
+
+halfcar_Ksf = K_susp_F_lbf_in * lbf_in_to_N_m;  % [N/m]
+halfcar_Ksr = K_susp_R_lbf_in * lbf_in_to_N_m;  % [N/m]
+
+% Tire vertical stiffness
+% VDS uses 640 lbf/in as tire stiffness. In the VDS math, this behaves like
+% per-tire stiffness because the listed axle heave rates match using 2*640.
+K_tire_each_lbf_in = 640.0;                     % one tire vertical stiffness [lbf/in]
+K_tire_axle_lbf_in = 2.0*K_tire_each_lbf_in;    % axle pair tire stiffness [lbf/in]
+
+halfcar_Ktf = K_tire_axle_lbf_in * lbf_in_to_N_m; % front axle tire stiffness [N/m]
+halfcar_Ktr = K_tire_axle_lbf_in * lbf_in_to_N_m; % rear axle tire stiffness [N/m]
+
+% Tire vertical damping.
+% No clean tire damping value is in the VDS, so start with zero.
+halfcar_Ctf = 0.0;
+halfcar_Ctr = 0.0;
+
+% Heave damping from Multimatic / VDS.
+% VDS rear heave critical damping = 355.37 lbf/(ft/s)
+% Multimatic VC01 heave valve position 5 ~= 150.36 lbf/(ft/s)
+% This gives zeta ~= 0.42 rear.
+C_heave_F_lbf_ft_s = 150.36;
+C_heave_R_lbf_ft_s = 150.36;
+
+halfcar_Csf = C_heave_F_lbf_ft_s * lbf_ft_s_to_N_s_m; % front suspension damping [N*s/m]
+halfcar_Csr = C_heave_R_lbf_ft_s * lbf_ft_s_to_N_s_m; % rear suspension damping [N*s/m]
+
+% Static axle loads
+Fz_front_static = Mv*gravity*halfcar_b/W;
+Fz_rear_static  = Mv*gravity*halfcar_a/W;
+
+% Half-car state initial condition
+% States are dynamic deviations from static equilibrium, so all start at zero.
+halfcar_x0 = zeros(8,1);
+
+% Useful sanity-check values
+K_heave_eff_F_lbf_in = ...
+    (K_susp_F_lbf_in*K_tire_axle_lbf_in)/(K_susp_F_lbf_in + K_tire_axle_lbf_in);
+
+K_heave_eff_R_lbf_in = ...
+    (K_susp_R_lbf_in*K_tire_axle_lbf_in)/(K_susp_R_lbf_in + K_tire_axle_lbf_in);
 
 
 % -- Launch Control Params From Car Code --
@@ -143,9 +240,13 @@ Motor_Tor_Time = simout.T_motor.Time(:);
 Motor_Tor = squeeze(simout.T_motor.Data);
 Motor_Tor = Motor_Tor(:);       % Motor Torque (Nm)
 
-Normal_Force_Time = simout.normal_force.Time(:);
-Normal_Force = squeeze(simout.normal_force.Data);
-Normal_Force = Normal_Force(:); % Rear axle normal force (N)
+[Fz_Front_Time, Fz_Front] = logged_signal(simout, 'Fz_front');
+[Fz_Rear_Time, Fz_Rear] = logged_signal(simout, 'Fz_rear');
+[F_Susp_Front_Time, F_Susp_Front] = logged_signal(simout, 'F_susp_front');
+[F_Susp_Rear_Time, F_Susp_Rear] = logged_signal(simout, 'F_susp_rear');
+[F_Tire_Front_Dyn_Time, F_Tire_Front_Dyn] = logged_signal(simout, 'F_tire_front_dyn');
+[F_Tire_Rear_Dyn_Time, F_Tire_Rear_Dyn] = logged_signal(simout, 'F_tire_rear_dyn');
+[Theta_Out_Time, Theta_Out] = logged_signal(simout, 'theta_out');
 
 Error_Time = simout.error.Time(:);
 Error = squeeze(simout.error.Data);
@@ -302,15 +403,68 @@ ylabel('Accel (m/s^2)');
 grid on;
 save_fig('acceleration', Accel_Time, Accel, 'Time_s', {'Acceleration_mps2'});
 
-% Normal Force
+% Half-car front vertical load
 figure;
-plot(Normal_Force_Time, Normal_Force, 'k', 'LineWidth', 2);
-title(sprintf('Normal Force on Rear Axle (%.2f Grip Factor)', Grip_Fact));
+plot(Fz_Front_Time, Fz_Front, 'k', 'LineWidth', 2);
+title(sprintf('Half-Car Fz Front (%.2f Grip Factor)', Grip_Fact));
 xlabel('Time (s)');
-ylabel('Normal Force (N)');
-ylim([0, 3500]);
+ylabel('Fz Front (N)');
 grid on;
-save_fig('normal_force', Normal_Force_Time, Normal_Force, 'Time_s', {'Normal_Force_N'});
+save_fig('fz_front', Fz_Front_Time, Fz_Front, 'Time_s', {'Fz_Front_N'});
+
+% Half-car rear vertical load
+figure;
+plot(Fz_Rear_Time, Fz_Rear, 'k', 'LineWidth', 2);
+title(sprintf('Half-Car Fz Rear (%.2f Grip Factor)', Grip_Fact));
+xlabel('Time (s)');
+ylabel('Fz Rear (N)');
+grid on;
+save_fig('fz_rear', Fz_Rear_Time, Fz_Rear, 'Time_s', {'Fz_Rear_N'});
+
+% Half-car front suspension force
+figure;
+plot(F_Susp_Front_Time, F_Susp_Front, 'k', 'LineWidth', 2);
+title(sprintf('Half-Car Front Suspension Force (%.2f Grip Factor)', Grip_Fact));
+xlabel('Time (s)');
+ylabel('Front Suspension Force (N)');
+grid on;
+save_fig('f_susp_front', F_Susp_Front_Time, F_Susp_Front, 'Time_s', {'F_Susp_Front_N'});
+
+% Half-car rear suspension force
+figure;
+plot(F_Susp_Rear_Time, F_Susp_Rear, 'k', 'LineWidth', 2);
+title(sprintf('Half-Car Rear Suspension Force (%.2f Grip Factor)', Grip_Fact));
+xlabel('Time (s)');
+ylabel('Rear Suspension Force (N)');
+grid on;
+save_fig('f_susp_rear', F_Susp_Rear_Time, F_Susp_Rear, 'Time_s', {'F_Susp_Rear_N'});
+
+% Half-car front dynamic tire force
+figure;
+plot(F_Tire_Front_Dyn_Time, F_Tire_Front_Dyn, 'k', 'LineWidth', 2);
+title(sprintf('Half-Car Front Dynamic Tire Force (%.2f Grip Factor)', Grip_Fact));
+xlabel('Time (s)');
+ylabel('Front Dynamic Tire Force (N)');
+grid on;
+save_fig('f_tire_front_dyn', F_Tire_Front_Dyn_Time, F_Tire_Front_Dyn, 'Time_s', {'F_Tire_Front_Dyn_N'});
+
+% Half-car rear dynamic tire force
+figure;
+plot(F_Tire_Rear_Dyn_Time, F_Tire_Rear_Dyn, 'k', 'LineWidth', 2);
+title(sprintf('Half-Car Rear Dynamic Tire Force (%.2f Grip Factor)', Grip_Fact));
+xlabel('Time (s)');
+ylabel('Rear Dynamic Tire Force (N)');
+grid on;
+save_fig('f_tire_rear_dyn', F_Tire_Rear_Dyn_Time, F_Tire_Rear_Dyn, 'Time_s', {'F_Tire_Rear_Dyn_N'});
+
+% Half-car pitch angle
+figure;
+plot(Theta_Out_Time, Theta_Out, 'k', 'LineWidth', 2);
+title(sprintf('Half-Car Pitch Angle (%.2f Grip Factor)', Grip_Fact));
+xlabel('Time (s)');
+ylabel('Pitch Angle (rad)');
+grid on;
+save_fig('theta_out', Theta_Out_Time, Theta_Out, 'Time_s', {'Theta_Out_rad'});
 
 % Target Motor Torque
 figure;
@@ -398,6 +552,183 @@ max_avail_atw_on_Torque_Time = interp_signal(Max_Motor_Tor_Time, max_avail_atw, 
 save_fig('torque_comparison_atw', Torque_Time, ...
     [T_motor_atw_on_Torque_Time, T_from_trac_atw, max_avail_atw_on_Torque_Time], ...
     'Time_s', {'Target_Torque_ATW_Nm','From_Tractive_Force_ATW_Nm','Max_Available_ATW_Nm'});
+
+
+function [t, y] = logged_signal(simout, signalName)
+% Read logged Simulink signals from top-level variables, grouped out.* data,
+% or the yout dataset.
+
+[found, sig] = get_simout_variable(simout, signalName);
+
+if ~found
+    [found, sig] = get_simout_variable(simout, ['out.' signalName]);
+end
+
+if ~found
+    [hasOut, outContainer] = get_simout_variable(simout, 'out');
+    if hasOut
+        [found, sig] = get_named_signal(outContainer, signalName);
+    end
+end
+
+if ~found
+    [hasYout, youtContainer] = get_simout_variable(simout, 'yout');
+    if hasYout
+        [found, sig] = get_named_signal(youtContainer, signalName);
+    end
+end
+
+if ~found
+    availableNames = get_simout_names(simout);
+    if isempty(availableNames)
+        availableText = '(none)';
+    else
+        availableText = strjoin(availableNames, ', ');
+    end
+
+    error('Logged signal "%s" was not found. Available SimulationOutput variables: %s', ...
+        signalName, availableText);
+end
+
+[t, y] = signal_to_time_data(sig, signalName);
+
+end
+
+
+function [found, value] = get_simout_variable(simout, variableName)
+
+found = false;
+value = [];
+
+try
+    names = get_simout_names(simout);
+    if any(strcmp(names, variableName))
+        value = simout.get(variableName);
+        found = true;
+        return;
+    end
+catch
+end
+
+try
+    value = simout.(variableName);
+    found = true;
+catch
+end
+
+end
+
+
+function names = get_simout_names(simout)
+
+names = {};
+
+try
+    names = simout.who;
+    if ischar(names)
+        names = cellstr(names);
+    end
+catch
+end
+
+end
+
+
+function [found, sig] = get_named_signal(container, signalName)
+
+found = false;
+sig = [];
+
+if isstruct(container)
+    if isfield(container, signalName)
+        sig = container.(signalName);
+        found = true;
+        return;
+    end
+
+    if isfield(container, 'signals')
+        [found, sig] = get_named_signal(container.signals, signalName);
+        if found
+            return;
+        end
+    end
+end
+
+if isa(container, 'Simulink.SimulationData.Dataset')
+    try
+        sig = container.get(signalName);
+        found = ~isempty(sig);
+        if found
+            return;
+        end
+    catch
+    end
+
+    try
+        sig = getElement(container, signalName);
+        found = true;
+        return;
+    catch
+    end
+end
+
+if isa(container, 'Simulink.SimulationData.Signal')
+    try
+        found = strcmp(container.Name, signalName);
+        if found
+            sig = container;
+            return;
+        end
+    catch
+    end
+end
+
+if iscell(container)
+    for i = 1:numel(container)
+        [found, sig] = get_named_signal(container{i}, signalName);
+        if found
+            return;
+        end
+    end
+end
+
+end
+
+
+function [t, y] = signal_to_time_data(sig, signalName)
+
+if isa(sig, 'Simulink.SimulationData.Signal')
+    sig = sig.Values;
+end
+
+if isa(sig, 'timeseries')
+    t = sig.Time(:);
+    y = squeeze(sig.Data);
+    y = y(:);
+    return;
+end
+
+if isstruct(sig)
+    if isfield(sig, 'Time') && isfield(sig, 'Data')
+        t = sig.Time(:);
+        y = squeeze(sig.Data);
+        y = y(:);
+        return;
+    end
+
+    if isfield(sig, 'time') && isfield(sig, 'signals')
+        t = sig.time(:);
+        if isfield(sig.signals, 'values')
+            y = squeeze(sig.signals.values);
+            y = y(:);
+            return;
+        end
+    end
+end
+
+error('Logged signal "%s" was found but is not a supported timeseries-like type.', signalName);
+
+end
 
 
 function yq = interp_signal(t, y, tq)
