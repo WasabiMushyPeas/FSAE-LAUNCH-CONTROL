@@ -1,83 +1,86 @@
-% --- Vehicle Parameters ---
-Mv = 278.10;                    % Vehicle Weight                     (kg)
-r = 0.203;                      % Wheel Radius                       (m)
-fd = 4.5;                       % Final Drive motor:tire             (Ratio)
-h_cg = 0.254;                   % Height of Center of Gravity        (m)
-W = 1.53035;                    % Wheelbase                          (m)
-Grip_Fact = 1.0;                % Grip Factor of the Tire
-Grip_Influence = 1.2;           % Grip Factor Impact on Table
-Drive_Train = 0.89;             % Drivetain loss perecent
-
-% --- Drivetrain Inertias ---
-J = 0.51151;                    % Total reflected rotating inertia     (kg*m^2)
-J_Motor = 0.34661;              % Inboard motor/diff inertia, wheel-side referenced
-J_Wheel = 0.16490;              % Two driven rear wheel assemblies     (kg*m^2)
-
-% --- Half-Shaft Parameters ---
-K = 5105.49;                    % Rear half-shaft pair stiffness       (Nm/rad)
-
-% Damping chosen from approx zeta = 0.20 with vehicle mass coupled in.
-% Use C = 9.55 if testing drivetrain alone with no vehicle body coupling.
-C = 16.56;                      % Half-shaft damping                   (Nms/rad)
-
-
-% --- Aerodynamics ---
-A = 1;                          % Frontal Area                       (m^2)
-rho = 1.225;                    % Air Density                        (kg/m^3)
-Cd = 1;                         % Drag Coefficient
-Cl = 3.8;                       % Lift Coefficient
-Cp = 0.53;                      % Load Percent on Rear Wheels Aero
-
-% -- Static Loads --
-cg_f = 0.74681;                 % Front Axel to CG                   (m)
-
-% -- Control Params --
-Slip_Target = 0.13;             % Target Slip Ratio
-T_request = 150;                % Initial Driver Torque Request      (Nm)
-Start_Blend = 3.0;              % Velocity Low Start to Change PIDs  (m/s)
-End_Blend = 8.0;                % Velocity High End Changing PIDs    (m/s)
-Max_Motor_RPM = 7000;           % EMRAX 208 speed limit              (rpm)
-Max_Wheel_Omega = (Max_Motor_RPM * 2*pi/60) / fd;  % Maximum wheel angular velocity  (rad/s)
-tau_motor = 0.03;               % Motor/controller torque lag         (s)
-tau_tire = 0.03;                % Tire Relaxation delay               (s)
-tau_load = 0.03;                % Load Transfer Lag                   (s)
-Max_Motor_Torque = 150;         % Maximum Motor Torque                (Nm)
-gravity = 9.80665;              % Accel due to Gravity Used           (m/s^2)
-
-
-% --- Rear Normal-Load Suspension Dynamics ---
-
-% Rear load oscillation from real launch pushrod/normal-force data
-f_load = 6.45;                 % [Hz]
-zeta_load = 0.35;              % damping ratio, tune 0.25 to 0.50
-omega_load = 2*pi*f_load;      % [rad/s]
-
-% Useful precomputed values
-Fz_static_rear = Mv*gravity*cg_f/W;   % [N]
-
-% Transfer function coefficients for load-transfer dynamics
-load_tf_num = [omega_load^2];
-load_tf_den = [1, 2*zeta_load*omega_load, omega_load^2];
-
-
-% --- Half-Car Suspension Parameters ---
-
-% Unit conversions
+%% ---------------- Units ----------------
 lb_to_kg = 0.45359237;
 in_to_m = 0.0254;
 lbf_in_to_N_m = 175.126835;       % 1 lbf/in = 175.126835 N/m
 lbf_ft_s_to_N_s_m = 14.593903;    % 1 lbf/(ft/s) = 14.593903 N*s/m
 slug_ft2_to_kg_m2 = 1.35581795;   % 1 slug*ft^2 = 1.35581795 kg*m^2
 
+%% ---------------- Vehicle Parameters ----------------
+Mv = 278.10;                    % Vehicle mass [kg]
+r = 0.203;                      % Wheel rolling radius [m]
+fd = 4.5;                       % Final drive, motor speed / wheel speed
+h_cg = 0.254;                   % CG height [m]
+W = 1.53035;                    % Wheelbase [m]
+gravity = 9.80665;              % Gravity [m/s^2]
 
+Grip_Fact = 1.0;                % Tire grip scaling factor
+Grip_Influence = 1.2;           % Legacy lookup-table grip influence scalar
+Drive_Train = 0.89;             % Drivetrain efficiency [0..1]
+
+%% ---------------- Vehicle Geometry ----------------
 % CG location from VDS:
 % Front axle to CG = 29.402 in
 % Rear axle to CG  = 30.848 in
-halfcar_a = 29.402 * in_to_m;     % front axle to CG [m]
-halfcar_b = 30.848 * in_to_m;     % CG to rear axle [m]
+halfcar_a = 29.402 * in_to_m;   % Front axle to CG [m]
+halfcar_b = 30.848 * in_to_m;   % CG to rear axle [m]
 
-% Keep your existing cg_f variable consistent with half-car model
-cg_f = halfcar_a;
+cg_f = halfcar_a;               % Front axle to CG [m], used by legacy load-transfer block
+cg_r = halfcar_b;               % CG to rear axle [m]
+wheelbase_from_vds = halfcar_a + halfcar_b;
+
+if abs(W - wheelbase_from_vds) > 1e-4
+    warning('PARAMS:WheelbaseMismatch', ...
+        'W does not match halfcar_a + halfcar_b from VDS geometry.');
+end
+
+%% ---------------- Drivetrain Inertias ----------------
+J = 0.51151;                    % Total wheel-side rotating inertia [kg*m^2]
+J_Motor = 0.34661;              % Inboard motor/diff inertia, wheel-side referenced
+J_Wheel = 0.16490;              % Two driven rear wheel assemblies [kg*m^2]
+
+%% ---------------- Half-Shaft Parameters ----------------
+K = 5105.49;                    % Rear half-shaft pair stiffness [Nm/rad]
+
+% Damping chosen from approx zeta = 0.20 with vehicle mass coupled in.
+% Use C = 9.55 if testing drivetrain alone with no vehicle body coupling.
+C = 16.56;                      % Half-shaft damping [Nms/rad]
+
+%% ---------------- Aerodynamics ----------------
+A = 1.0;                        % Frontal area [m^2]
+rho = 1.225;                    % Air density [kg/m^3]
+Cd = 1.0;                       % Drag coefficient
+Cl = 3.8;                       % Downforce coefficient
+Cp = 0.53;                      % Rear aero load fraction
+
+%% ---------------- Motor And Shared Control Parameters ----------------
+Slip_Target = 0.13;             % Slip target [decimal]
+T_request = 150;                % Initial driver torque request [Nm]
+Max_Motor_RPM = 7000;           % EMRAX 208 speed limit [rpm]
+Max_Wheel_Omega = (Max_Motor_RPM * 2*pi/60) / fd;  % Wheel speed limit [rad/s]
+tau_motor = 0.03;               % Motor/controller torque lag [s]
+tau_tire = 0.03;                % Legacy tire relaxation time constant [s]
+tau_load = 0.03;                % Legacy load-transfer lag [s]
+Max_Motor_Torque = 150;         % Maximum motor torque [Nm]
+
+%% ---------------- Static Loads ----------------
+% Static axle loads use the standard moment balance about each axle.
+Fz_front_static = Mv*gravity*cg_r/W;
+Fz_rear_static  = Mv*gravity*cg_f/W;
+
+% Legacy rear-load alias for the older load-transfer block.
+Fz_static_rear = Fz_rear_static;
+
+%% ---------------- Rear Normal-Load Suspension Dynamics ----------------
+% Rear load oscillation from real launch pushrod/normal-force data.
+f_load = 6.45;                  % Load-transfer natural frequency [Hz]
+zeta_load = 0.35;               % Damping ratio, tune 0.25 to 0.50
+omega_load = 2*pi*f_load;       % Load-transfer natural frequency [rad/s]
+
+% Transfer function coefficients for load-transfer dynamics.
+load_tf_num = omega_load^2;
+load_tf_den = [1, 2*zeta_load*omega_load, omega_load^2];
+
+%% ---------------- Half-Car Suspension Parameters ----------------
 
 % Unsprung masses from VDS, axle lumped
 halfcar_muf = 32.0 * lb_to_kg;    % front unsprung axle mass [kg]
@@ -133,10 +136,6 @@ C_heave_R_lbf_ft_s = 150.36;
 halfcar_Csf = C_heave_F_lbf_ft_s * lbf_ft_s_to_N_s_m; % front suspension damping [N*s/m]
 halfcar_Csr = C_heave_R_lbf_ft_s * lbf_ft_s_to_N_s_m; % rear suspension damping [N*s/m]
 
-% Static axle loads
-Fz_front_static = Mv*gravity*halfcar_b/W;
-Fz_rear_static  = Mv*gravity*halfcar_a/W;
-
 % Half-car state initial condition
 % States are dynamic deviations from static equilibrium, so all start at zero.
 halfcar_x0 = zeros(8,1);
@@ -148,11 +147,9 @@ K_heave_eff_F_lbf_in = ...
 K_heave_eff_R_lbf_in = ...
     (K_susp_R_lbf_in*K_tire_axle_lbf_in)/(K_susp_R_lbf_in + K_tire_axle_lbf_in);
 
-
-% -- Launch Control Params From Car Code --
+%% ---------------- Launch Control Params From Car Code ----------------
 CONTROLLER_INFLUENCE = int32(100);
 
-LC_TABLE_LENGTH = int32(40);
 LC_TS = int32(10);              % Launch-control sample time [ms]
 LC_Ts_sec = double(LC_TS)/1000; % Launch-control sample time [s]
 
@@ -160,13 +157,20 @@ LC_KP = int32(700);
 LC_KI_STEP = int32(25);
 LC_KD_STEP = int32(0);
 
-LC_SLIP_TARGET = int32(1300);   % 1300 = 13.00% slip
+LC_SLIP_TARGET = int32(round(10000*Slip_Target)); % 1300 = 13.00% slip
 
+% Active car-code blend window.
 LC_START_BLEND = int32(300);    % cm/s = 3 m/s
 LC_END_BLEND = int32(500);      % cm/s = 5 m/s
+LC_START_BLEND_MPS = double(LC_START_BLEND)/100;
+LC_END_BLEND_MPS = double(LC_END_BLEND)/100;
 
-LC_GRIP_FACTOR = int32(1000);
-LC_GRIP_INFLUENCE = int32(1500);
+% Legacy aliases for older continuous-controller model variants.
+Start_Blend = LC_START_BLEND_MPS;
+End_Blend = LC_END_BLEND_MPS;
+
+LC_GRIP_FACTOR = int32(round(1000*Grip_Fact));
+LC_GRIP_INFLUENCE = int32(1500); % 1500 = 1.5x grip correction influence
 LC_MIN_GRIP_SCALE = int32(0);
 LC_MAX_GRIP_SCALE = int32(1500);
 
@@ -192,16 +196,28 @@ launchCmd = int32([ ...
     1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, ...
     1000,1000,1000,1000,1000,1000,1000,1000,1000,1000]);
 
+if numel(launchTimeMs) ~= numel(launchCmd)
+    error('PARAMS:LaunchTableLengthMismatch', ...
+        'launchTimeMs and launchCmd must have the same number of entries.');
+end
+
+if any(diff(double(launchTimeMs)) <= 0)
+    error('PARAMS:LaunchTableTimeOrder', ...
+        'launchTimeMs must be strictly increasing.');
+end
+
+LC_TABLE_LENGTH = int32(numel(launchTimeMs));
+
 % Optional double versions for normal Simulink lookup tables / plotting.
 Time_pts = double(launchTimeMs)/1000;   % [s]
 Throttle_pts = double(launchCmd)/1000;  % 0 to 1 scale
 
 
-% -- Simulink --
+%% ---------------- Simulation ----------------
 timedomain = 10;                % Simulation Time (s)
 simout = sim("TC_SIM.slx", timedomain);
 
-% -- Time and Data --
+%% ---------------- Logged Signals ----------------
 % Pull each logged signal with its own time vector. Some signals are logged at
 % the variable-step solver times, while the LC controller signals are logged
 % at the discrete 10 ms controller sample time. Plot each signal against its
@@ -266,7 +282,7 @@ Slip_Ratio = Slip_Ratio(:);     % Slip Ratio
 
 Max_Motor_Tor_Time = simout.Max_Tor.Time(:);
 Max_Motor_Tor = squeeze(simout.Max_Tor.Data);
-Max_Motor_Tor = Max_Motor_Tor(:); % Max Motor torque (Nm)
+Max_Motor_Tor = Max_Motor_Tor(:); % Max motor torque (Nm)
 
 PID_Time = simout.pid_correction.Time(:);
 PID = squeeze(simout.pid_correction.Data);
@@ -277,6 +293,7 @@ PID = PID(:);                   % LC PID correction
 %Tau_Tire = Tau_Tire(:);         % Tire relaxation time constant (s)
 
 
+%% ---------------- Performance Metrics ----------------
 % -- Print Time when Distance is 75 m --
 target_distance = 75; % Target distance (m)
 time_at_target_distance = Dist_Time(Dist >= target_distance);
@@ -297,6 +314,7 @@ else
     fprintf('Speed of 26.8224 m/s was not reached during the simulation.\n');
 end
 
+%% ---------------- Figure Export Settings ----------------
 % --- Black-on-white figure theme ---
 exportAxesFontSize = 16;
 exportLabelFontSize = 18;
@@ -346,6 +364,7 @@ save_fig = @(base, X, Y, xname, ynames) export_pdf_png_and_csv( ...
 % grid on;
 % save_fig('tau_tire_vs_time', Tau_Tire_Time, Tau_Tire, 'Time_s', {'Tau_Tire_s'});
 
+%% ---------------- Plots ----------------
 % PID
 figure;
 plot(PID_Time, PID, 'k', 'LineWidth', 2);
@@ -553,6 +572,7 @@ save_fig('torque_comparison_atw', Torque_Time, ...
     [T_motor_atw_on_Torque_Time, T_from_trac_atw, max_avail_atw_on_Torque_Time], ...
     'Time_s', {'Target_Torque_ATW_Nm','From_Tractive_Force_ATW_Nm','Max_Available_ATW_Nm'});
 
+%% ---------------- Local Functions ----------------
 
 function [t, y] = logged_signal(simout, signalName)
 % Read logged Simulink signals from top-level variables, grouped out.* data,
