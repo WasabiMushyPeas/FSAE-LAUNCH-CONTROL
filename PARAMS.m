@@ -143,16 +143,20 @@ LC_MAX_CMD = int32(1000);      % Maximum torque command [permille]
 LC_MIN_CORR = int32(-1000);    % Minimum PID correction [permille]
 LC_MAX_CORR = int32(1000);     % Maximum PID correction [permille]
 
-launchTimeMs = int32([ ...
-    0,16,33,51,72,96,121,148,177,207,239,271,302,337,376,420,469,523, ...
-    583,650,724,806,899,1000,1406,1906,2440,2972,3554,4138,4724,5310, ...
-    5895,6481,7067,7654,8240,8827,9413,10000]);
+%% ---------------- Launch Lookup Table ----------------
+launchTable.startTime_s = 0.0;       % Lookup table start time [s]
+launchTable.endTime_s = 10.0;        % Lookup table end time [s]
+launchTable.startThrottle = 0.0;     % Initial throttle command [0..1]
+launchTable.endThrottle = 1.00;      % Final throttle command [0..1]
+launchTable.midTime_s = 0.2;         % Sigmoid midpoint time [s]
+launchTable.steepness_1ps = 25.0;     % Sigmoid steepness [1/s]
+launchTable.numPoints = 40;          % Lookup table point count [-]
+launchTable.minSpacing_s = LC_Ts_sec; % Minimum table point spacing [s]
+launchTable.slopeWeight = 10.0;      % Extra point density near high slope [-]
+launchTable.densePoints = 2000;      % Internal generation point count [-]
 
-launchCmd = int32([ ...
-    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, ...
-    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, ...
-    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, ...
-    1000,1000,1000,1000,1000,1000,1000,1000,1000,1000]);
+[launchTimeMs, launchCmd, Time_pts, Throttle_pts] = ...
+    generate_sigmoid_launch_table(launchTable);
 
 if numel(launchTimeMs) ~= numel(launchCmd)
     error('PARAMS:LaunchTableLengthMismatch', ...
@@ -165,9 +169,6 @@ if any(diff(double(launchTimeMs)) <= 0)
 end
 
 LC_TABLE_LENGTH = int32(numel(launchTimeMs));
-
-Time_pts = double(launchTimeMs)/1000;
-Throttle_pts = double(launchCmd)/1000;
 
 
 %% ---------------- Simulation ----------------
@@ -290,6 +291,18 @@ save_fig = @(base, X, Y, xname, ynames) export_pdf_png_and_csv( ...
     exportAxesFontSize, exportLabelFontSize, exportTitleFontSize, exportLegendFontSize);
 
 %% ---------------- Plots ----------------
+% Launch throttle table
+figure;
+plot(Time_pts, Throttle_pts, '-ok', ...
+    'LineWidth', 2, 'MarkerFaceColor', 'k', 'MarkerSize', 4);
+title('Launch Throttle Table');
+xlabel('Time (s)');
+ylabel('Throttle Command');
+xlim([launchTable.startTime_s, launchTable.endTime_s]);
+ylim([0, 1.05]);
+grid on;
+save_fig('launch_throttle_table', Time_pts, Throttle_pts, 'Time_s', {'Throttle_Command'});
+
 % PID
 figure;
 plot(PID_Time, PID, 'k', 'LineWidth', 2);
@@ -505,6 +518,138 @@ save_fig('torque_comparison_atw', Torque_Time, ...
     'Time_s', {'Target_Torque_ATW_Nm','From_Tractive_Force_ATW_Nm','Max_Available_ATW_Nm'});
 
 %% ---------------- Local Functions ----------------
+
+function [launchTimeMs, launchCmd, Time_pts, Throttle_pts] = generate_sigmoid_launch_table(p)
+
+if ~isstruct(p)
+    error('PARAMS:LaunchTableParams', ...
+        'Launch table parameters must be provided in a struct.');
+end
+
+startTime_s = field_or_default(p, 'startTime_s', 0.0);
+endTime_s = field_or_default(p, 'endTime_s', 10.0);
+startThrottle = field_or_default(p, 'startThrottle', 0.0);
+endThrottle = field_or_default(p, 'endThrottle', 1.0);
+midTime_s = field_or_default(p, 'midTime_s', 0.5*(startTime_s + endTime_s));
+steepness_1ps = field_or_default(p, 'steepness_1ps', 10.0);
+numPoints = round(field_or_default(p, 'numPoints', 40));
+minSpacing_s = field_or_default(p, 'minSpacing_s', 0.010);
+slopeWeight = field_or_default(p, 'slopeWeight', 8.0);
+densePoints = round(field_or_default(p, 'densePoints', max(1000, 50*numPoints)));
+
+if endTime_s <= startTime_s
+    error('PARAMS:LaunchTableTimeRange', ...
+        'launchTable.endTime_s must be greater than launchTable.startTime_s.');
+end
+
+if numPoints < 2
+    error('PARAMS:LaunchTablePointCount', ...
+        'launchTable.numPoints must be at least 2.');
+end
+
+if steepness_1ps <= 0
+    error('PARAMS:LaunchTableSteepness', ...
+        'launchTable.steepness_1ps must be positive.');
+end
+
+if minSpacing_s < 0
+    error('PARAMS:LaunchTableSpacing', ...
+        'launchTable.minSpacing_s cannot be negative.');
+end
+
+if (numPoints - 1)*minSpacing_s > (endTime_s - startTime_s)
+    error('PARAMS:LaunchTableSpacing', ...
+        'launchTable.minSpacing_s is too large for the requested point count.');
+end
+
+densePoints = max(densePoints, 4*numPoints);
+tDense = linspace(startTime_s, endTime_s, densePoints).';
+
+z = steepness_1ps*(tDense - midTime_s);
+z = min(max(z, -60), 60);
+sigmoid = 1 ./ (1 + exp(-z));
+
+throttleDense = startThrottle + (endThrottle - startThrottle).*sigmoid;
+throttleDense = min(max(throttleDense, 0), 1);
+
+slope = abs((endThrottle - startThrottle).*steepness_1ps.*sigmoid.*(1 - sigmoid));
+maxSlope = max(slope);
+
+if maxSlope > 0 && slopeWeight > 0
+    density = 1 + slopeWeight.*slope./maxSlope;
+else
+    density = ones(size(tDense));
+end
+
+cumDensity = cumtrapz(tDense, density);
+targetDensity = linspace(cumDensity(1), cumDensity(end), numPoints).';
+timePts = interp1(cumDensity, tDense, targetDensity, 'linear');
+timePts(1) = startTime_s;
+timePts(end) = endTime_s;
+timePts = enforce_lookup_spacing(timePts, minSpacing_s, startTime_s, endTime_s);
+
+timeMs = round(1000*timePts);
+timeMs(1) = round(1000*startTime_s);
+timeMs(end) = round(1000*endTime_s);
+
+for i = 2:numel(timeMs)-1
+    if timeMs(i) <= timeMs(i-1)
+        timeMs(i) = timeMs(i-1) + 1;
+    end
+end
+
+if any(diff(timeMs) <= 0)
+    error('PARAMS:LaunchTableRoundedTimeOrder', ...
+        'Rounded launch-table times are not strictly increasing.');
+end
+
+launchTimeMs = int32(timeMs(:).');
+Time_pts = double(launchTimeMs)/1000;
+
+throttlePts = interp1(tDense, throttleDense, Time_pts(:), 'linear');
+throttlePts = min(max(throttlePts, 0), 1);
+
+launchCmd = int32(round(1000*throttlePts(:).'));
+Throttle_pts = double(launchCmd)/1000;
+
+end
+
+
+function value = field_or_default(s, fieldName, defaultValue)
+
+if isfield(s, fieldName) && ~isempty(s.(fieldName))
+    value = s.(fieldName);
+else
+    value = defaultValue;
+end
+
+end
+
+
+function timePts = enforce_lookup_spacing(timePts, minSpacing_s, startTime_s, endTime_s)
+
+timePts = timePts(:);
+timePts(1) = startTime_s;
+timePts(end) = endTime_s;
+
+if minSpacing_s <= 0 || numel(timePts) < 3
+    return;
+end
+
+for i = 2:numel(timePts)-1
+    lowerBound = timePts(i-1) + minSpacing_s;
+    upperBound = endTime_s - (numel(timePts) - i)*minSpacing_s;
+    timePts(i) = min(max(timePts(i), lowerBound), upperBound);
+end
+
+for i = numel(timePts)-1:-1:2
+    lowerBound = startTime_s + (i - 1)*minSpacing_s;
+    upperBound = timePts(i+1) - minSpacing_s;
+    timePts(i) = min(max(timePts(i), lowerBound), upperBound);
+end
+
+end
+
 
 function [t, y] = logged_signal(simout, signalName)
 
