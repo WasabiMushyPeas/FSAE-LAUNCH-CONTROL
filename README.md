@@ -1,105 +1,107 @@
 # Cal Poly Racing EV 2026 | Launch Control & Vehicle Dynamics Simulation
 
-![MATLAB](https://img.shields.io/badge/MATLAB-R2025B-orange)
+![MATLAB](https://img.shields.io/badge/MATLAB-R2025b-orange)
 ![Simulink](https://img.shields.io/badge/Simulink-Required-blue)
 ![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)
 ![Team](https://img.shields.io/badge/Team-Cal%20Poly%20Racing%20EV-red)
+![Real World Best](https://img.shields.io/badge/Real%20World%20Best%200--75m-4.7s-yellow)
 
 > Simulation and controls workflow for optimizing launch performance in the Formula SAE EV acceleration event.
 
 ## Table of Contents
-- [Cal Poly Racing EV 2026 | Launch Control \& Vehicle Dynamics Simulation](#cal-poly-racing-ev-2026--launch-control--vehicle-dynamics-simulation)
-  - [Table of Contents](#table-of-contents)
-  - [Overview](#overview)
-  - [Objectives](#objectives)
-  - [Repository Structure](#repository-structure)
-    - [File Summary](#file-summary)
-  - [Simulink Architecture](#simulink-architecture)
-    - [Aero Block](#aero-block)
-    - [Weight Transfer](#weight-transfer)
-    - [Tire Model](#tire-model)
-    - [Motor Torque](#motor-torque)
-    - [Controller](#controller)
-  - [How to Run](#how-to-run)
-    - [Requirements](#requirements)
-    - [Workflow](#workflow)
-    - [Performance Metrics](#performance-metrics)
-    - [Time-History Outputs](#time-history-outputs)
-  - [Model Assumptions and Scope](#model-assumptions-and-scope)
-  - [Current Limitations](#current-limitations)
-  - [Results and Validation](#results-and-validation)
+- [Overview](#overview)
+- [Objectives](#objectives)
+- [Repository Structure](#repository-structure)
+- [Simulink Architecture](#simulink-architecture)
+  - [Aerodynamics (Areo1)](#aerodynamics-areo1)
+  - [Tire Model](#tire-model)
+  - [Max Torque (EMRAX 208 Curve)](#max-torque-emrax-208-curve)
+  - [Launch Controller](#launch-controller)
+  - [Half-Car Suspension Normal Load](#half-car-suspension-normal-load)
+  - [Longitudinal Load Transfer (Legacy, Disabled)](#longitudinal-load-transfer-legacy-disabled)
+  - [Vehicle & Drivetrain Dynamics](#vehicle--drivetrain-dynamics)
+- [Scripts and Tooling](#scripts-and-tooling)
+- [How to Run](#how-to-run)
+  - [Requirements](#requirements)
+  - [Workflow](#workflow)
+  - [Alternative Entry Points](#alternative-entry-points)
+  - [Performance Metrics](#performance-metrics)
+  - [Time-History Outputs](#time-history-outputs)
+- [Model Parameters](#model-parameters)
+- [Model Assumptions and Scope](#model-assumptions-and-scope)
+- [Current Limitations](#current-limitations)
+- [Results and Validation](#results-and-validation)
 
 ## Overview
-This repository contains the **Simulink model** and **MATLAB live scripts** used to simulate, analyze, and optimize the launch control strategy for the **Cal Poly Racing EV 2026** Formula SAE car in the **0-75 m acceleration event**.
+This repository contains the **Simulink model** and **MATLAB scripts** used to simulate, analyze, and optimize the launch control strategy for the **Cal Poly Racing EV 2026** Formula SAE car in the **0–75 m acceleration event**.
 
 The project is built around a **rear-wheel-drive electric vehicle model** and focuses on minimizing launch time through the combination of:
 
-- a custom **PID-based traction controller**
-- a **time-based baseline throttle strategy**
-- a simplified but highly practical **tire force model**
+- a **fixed-point launch controller** that mirrors the car's embedded firmware (feedforward launch table plus a discrete slip-control PID)
+- a **time-based launch (feedforward) table** that scales the available motor torque
+- a simplified but practical **Pacejka-style tire force model**
+- a **4-DOF half-car suspension model** that supplies the dynamic rear-axle normal load
 
-The result is a simulation workflow intended to support a near-production controls process: parameterize the vehicle, run the launch model, inspect system behavior, controller gains, and drivetrain assumptions until the car launches harder, cleaner, and more consistently.
+The result is a controls workflow intended to support a near-production process: parameterize the vehicle in `PARAMS.m`, run the launch model, and inspect system behavior, controller response, and drivetrain assumptions until the car launches harder, cleaner, and more consistently.
+
+The team's **best real-world 0–75 m time is 4.7 s**, which is the benchmark this simulation is being tuned and validated against.
 
 ## Objectives
-The primary objective of this project is to reduce the vehicle's **0-75 meter acceleration time** while preserving controllability and limiting excessive wheel slip.
+The primary objective is to reduce the vehicle's **0–75 m acceleration time** while preserving controllability and limiting excessive wheel slip.
 
 Secondary goals include:
 
-- improving **0-60 mph performance predictions**
+- improving **0–60 mph (26.8224 m/s)** performance predictions
 - identifying an effective **final drive ratio**
-- tuning a **traction control PID loop** around a target slip ratio
-- understanding how **weight transfer, tire loading, and drivetrain compliance** influence launch performance
+- tuning the **launch-control slip loop** around a target slip ratio
+- understanding how **weight transfer, tire loading, aerodynamics, and drivetrain compliance** influence launch performance
+- correlating the simulation against the **4.7 s real-world benchmark**
 - creating a repeatable simulation workflow for future team members and design reviews
 
 ## Repository Structure
 
-### File Summary
+The table below lists the version-controlled files. Generated artifacts (`figures/`, `*.csv`, `*.slxc`, `slprj/`, and the temporary `_tc_sim_unpack*/` and `_tc_sim_zip.zip` inspection dumps) are produced at runtime and are intentionally **git-ignored**.
+
 | File | Purpose |
 |---|---|
-| `.gitattributes` | Git attributes configuration for normalizing repository file handling. |
-| `FINAL_DRIVE_RATIO.mlx` | Iterative script used to sweep final drive ratios and identify the best mechanical advantage for acceleration performance. |
-| `FINAL_DRIVE_RATIO_OLD.mlx` | Previous iteration of the final drive sweep workflow retained for reference and comparison. |
-| `PARAMS.mlx` | Main script used to configure variables, initialize model parameters, run setup logic, and graph simulation results. |
-| `PID_TUNER.mlx` | Script used for faster controller gain sweeps and traction-control tuning studies. |
-| `README.md` | Project documentation covering repository structure, model architecture, workflow, and assumptions. |
-| `SIM-PICTURE.pdf` | Reference PDF showing a model or simulation diagram used for documentation. |
-| `sweep_results.csv` | Exported results from a parameter sweep study for quick review outside MATLAB. |
-| `TC_PID_sweep_results.mat` | Saved MATLAB data file containing PID sweep results for later analysis. |
-| `TC_SIM.slx` | Core Simulink model for launch control, traction control, drivetrain response, and vehicle longitudinal dynamics. |
-| `TC_SIM.slx.original` | Backup copy of the Simulink model preserved for comparison or recovery. |
-| `TC_SIM.slxc` | Simulink generated cache or compiled artifact for the main model. |
-| `TC_SIM_FAST.slx` | Streamlined Simulink model paired with `PID_TUNER.mlx` for rapid PID tuning iterations. |
-| `figures/` | Directory for generated plots, images, or other visual outputs used in the project. |
-| `slprj/` | Simulink generated build and cache directory created during model compilation and execution. |
-
+| `PARAMS.m` | **Main entry point.** Defines all vehicle, tire, aero, drivetrain, half-car, and launch-control parameters; generates the sigmoid launch table; runs `TC_SIM.slx`; logs signals; and exports plots/data. |
+| `PARAMS_IDEAL_LAUNCH_TABLE.m` | Alternative entry point. Generates an *ideal feedforward* launch table by inverting the longitudinal vehicle + tire model at a target slip ratio, then optionally runs `TC_SIM.slx` open-loop with that table. |
+| `THROTTLE_LOOKUP_GENERATOR.m` | Coordinate-descent optimizer that tunes a time-varying throttle lookup table against a slip-tracking objective and exports `throttle_lookup_table.csv` / `.mat`. |
+| `FINAL_DRIVE_GRIP_SWEEP_75M.m` | Parallel (`parsim`) 2-D sweep of final drive ratio × tire grip factor, plotting simulated 75 m time for each grip level. |
+| `PID_TUNER.m` | Parallel `P`/`I` gain sweep run against the reduced `TC_SIM_FAST.slx` model for fast controller-tuning studies. |
+| `TC_SIM.slx` | **Core Simulink model:** launch control, tire forces, half-car normal load, aerodynamics, drivetrain/half-shaft compliance, and longitudinal dynamics. |
+| `TC_SIM_FAST.slx` | Reduced model paired with `PID_TUNER.m`. Uses a single discrete-transfer-function PID (`P`, `I`, `D`, `Ts`) for rapid sweeps. |
+| `throttle_lookup_table.mat` | Saved output of `THROTTLE_LOOKUP_GENERATOR.m` (optimized table, optimization history, and metrics). |
+| `ideal_launch_outputs/` | PNG outputs from `PARAMS_IDEAL_LAUNCH_TABLE.m` (ideal command, required torque, acceleration, and sim comparisons). |
+| `README.md` | This document. |
+| `.gitattributes`, `.gitignore` | Repository configuration. |
 
 ## Simulink Architecture
-The `TC_SIM.slx` model is organized around a set of subsystems that together simulate the launch event from throttle command to tire force generation and vehicle motion.
+`TC_SIM.slx` is organized into top-level subsystems that simulate the launch event from torque command to tire force generation and vehicle motion. The launch controller and its I/O are sampled at **`LC_Ts_sec = 0.01 s` (100 Hz)** through Zero-Order-Hold blocks, matching the car's real launch-control loop rate.
 
-### Aero Block
-The aero subsystem computes the aerodynamic forces acting on the vehicle during the run, including:
+### Aerodynamics (Areo1)
+Computes the aerodynamic forces acting on the vehicle from vehicle speed:
 
-- **drag**, which opposes acceleration
-- **downforce**, which increases tire normal load and can improve traction at speed
+- **drag**, which opposes acceleration, fed into the vehicle dynamics
+- **downforce**, which is passed to the half-car model and increases rear normal load (and therefore grip) at speed
 
-While the acceleration event is short, these effects still matter as vehicle speed rises and can influence both force balance and rear tire loading.
-
-### Weight Transfer
-This subsystem calculates **longitudinal weight transfer** under acceleration and updates the **dynamic normal load on the driven rear axle**.
-
-This is critical because available tire force depends strongly on vertical load. During launch, rearward load transfer can increase traction potential at the driven wheels, making this block one of the most important links between chassis behavior and controller performance.
+While the acceleration event is short, these effects still matter as speed rises.
 
 ### Tire Model
-The tire model calculates **slip ratio** and uses a simplified Pacejka-style relationship to estimate longitudinal tire force.
+The tire subsystem contains three pieces:
 
-The current implementation uses hardcoded coefficients and a grip-scaling factor:
+- **Slip Ratio** (`compute_slip`): `slip = (V_wheel − V_velocity) / max(|V_velocity|, |V_wheel|, 0.1)`, with a 0.1 m/s denominator floor to keep the launch numerically well-behaved.
+- **Friction Coefficient Calc** (`calculatePacejkaFx`): a simplified, load-sensitive Pacejka relationship.
+- **Tire relaxation** (`tire_relaxation_derivative`): a first-order lag (`tau_tire`) so tire force does not respond instantaneously to slip.
+
+The Pacejka block uses hardcoded coefficients and a grip-scaling factor:
 
 ```matlab
 % --- Hardcoded Model Coefficients ---
 B = coder.const(10.4);
 C = coder.const(1.58);
 D1 = coder.const(3.02);
-D2 = coder.const(0.0008 / 4.448221615);    % per N instead of per lbf 
+D2 = coder.const(0.0008 / 4.448221615);    % per N instead of per lbf
 
 % --- Apply the Simplified Pacejka Formula ---
 mu = (D1 - (D2) .* (normalForce/2)) * Grip_Fact;
@@ -111,110 +113,148 @@ D_factor = mu .* (normalForce/2);
 Fx = (D_factor .* sin(C * atan(B * slipRatio)));
 ```
 
-At a high level, the model:
+At a high level, the model computes a load-sensitive friction coefficient `mu`, scales grip with `Grip_Fact`, converts normal load into peak longitudinal force potential, and applies the simplified sine–arctangent Pacejka relationship. The rear-axle normal load (`normalForce`) comes from the half-car suspension model.
 
-- computes a load-sensitive friction coefficient `mu`
-- scales grip using `Grip_Fact`
-- converts normal load into peak longitudinal force potential
-- applies a simplified sine-arctangent Pacejka relationship to estimate tire force
+### Max Torque (EMRAX 208 Curve)
+A 1-D lookup table maps **motor RPM → maximum available motor torque** using the EMRAX 208 curve (≈150 Nm plateau at low/mid speed, tapering to ≈102 Nm near 7000 rpm). This rpm-dependent ceiling is the **base torque** the launch controller scales.
 
-This provides a practical balance between physical realism and simulation speed for launch-control studies.
+### Launch Controller
+The controller (`car_launch_control_active`) is a **fixed-point integer reimplementation of the car's embedded launch-control firmware** (`%#codegen`). It takes simulation time, the available base torque, slip ratio, and vehicle speed, and produces the final motor torque command.
 
-### Motor Torque
-The motor subsystem applies a **hardcoded rpm vs. torque curve** to represent available torque over the launch event.
+Its strategy:
 
+- a **feedforward launch table** (`launchTimeMs` / `launchCmd`, in permille of available torque) interpolated by time and scaled by a grip factor
+- a **discrete PID slip-correction loop** in integer math, with error `= LC_SLIP_TARGET − slip` (slip in permyriad, so `1300 = 13.00%`)
+- **conditional-integration anti-windup**: the correction state only updates when the output is unsaturated, or when saturated in the direction that the current error would relieve
+- a **speed-based blend** (`alpha`, 0→1 between `LC_START_BLEND` and `LC_END_BLEND`) that fades the PID correction in as the car accelerates
+- final command = grip-scaled feedforward + blended correction, clamped to `[LC_MIN_CMD, LC_MAX_CMD]` (0–1000 permille), then applied as a fraction of the available motor torque: `torqueNm = baseTorqueNm × finalCmd / 1000`
 
-### Controller
+The discrete PID is the standard `P + I/s + D·s` structure discretized to the recursive `a0·e[k] + a1·e[k-1] + a2·e[k-2]` form, with the coefficients built from the fixed-point gains `LC_KP`, `LC_KI_STEP`, and `LC_KD_STEP` at sample time `LC_TS`. In the current parameter set the derivative term is zero (`LC_KD_STEP = 0`), so the loop runs as a **PI controller**. Diagnostic outputs include the slip error, blend `alpha`, feedforward scale, and PID-correction scale (logged as `error`, `alpha`, and `pid_correction`).
 
-The traction controller is implemented as a **discrete-time PID controller** written as a single transfer function rather than separate P, I, and D blocks.
+> Note: `TC_SIM_FAST.slx` (used only by `PID_TUNER.m`) keeps an *older* controller representation — a single `DiscreteTransferFcn` PID parameterized by floating-point `P`, `I`, `D`, `Ts` — for fast gain sweeps. The production `TC_SIM.slx` uses the firmware-style fixed-point controller described above.
 
-At a high level, the strategy consists of:
+### Half-Car Suspension Normal Load
+A **4-DOF half-car suspension model** (8-state) is the active source of dynamic axle normal loads. Driven by longitudinal acceleration (inertial pitch moment through the CG height) and aerodynamic downforce (split front/rear by `Cp`), it integrates sprung-mass heave and pitch plus front and rear axle hop, and outputs **dynamic front/rear normal loads, suspension forces, dynamic tire forces, and pitch angle**. Its **rear normal load (`Fz_rear`) feeds the tire model**, making the link between chassis behavior and available traction physically explicit.
 
-- a **time-based lookup table** that defines the baseline launch command
-- a **discrete PID slip controller** that generates a **torque correction** from slip error
-- a control objective of maintaining a **target slip ratio of `0.13`**
-- a post-controller **saturation** and **sign inversion** so excessive slip reduces commanded torque
-- a blending strategy that transitions smoothly toward the primary throttle input at higher vehicle speeds
+### Longitudinal Load Transfer (Legacy, Disabled)
+A simpler **second-order longitudinal load-transfer** block (parameterized by `f_load`, `zeta_load`) also exists in the model but is **commented out / inactive** — it has been superseded by the half-car model. Its parameters remain in `PARAMS.m` for reference.
 
-The PID is the continuous form `P + I/s + D s` converted to discrete time with a **Zero-Order Hold (ZOH)**. In this implementation, the proportional term reacts to present slip error, the integral term uses **trapezoidal integration** to remove steady-state offset, and the derivative term applies the Tustin discrete derivative to react to rapid slip changes.
+### Vehicle & Drivetrain Dynamics
+Resolves net longitudinal force (tractive force − drag) into acceleration, velocity, and distance. A first-order **motor/controller torque lag** (`tau_motor`) sits ahead of the wheel dynamics, and the **rear half-shaft pair is modeled as a torsional spring–damper** (`K`, `C`) coupling motor/diff and wheel inertias (`J`, `J_Motor`, `J_Wheel`). Motor RPM out of this subsystem drives the Max Torque lookup.
 
-Simulink evaluates the controller as a recursive update law using the current error, the two previous error samples, and the output from two samples ago. That means the block is using controller state internally, even though it appears as a single transfer function.
+## Scripts and Tooling
+- **`PARAMS.m`** — the standard run. Builds the sigmoid launch table via `generate_sigmoid_launch_table`, runs the model, and exports every logged signal as PDF + PNG + CSV into `figures/`.
+- **`PARAMS_IDEAL_LAUNCH_TABLE.m`** — inverts the longitudinal + tire model to compute the motor torque needed to hold a target slip exactly, producing an "ideal" feedforward table. Includes reflected inertia and optional motor-lag compensation. Intended to test the feedforward table open-loop (it can zero the LC PID gains).
+- **`THROTTLE_LOOKUP_GENERATOR.m`** — coordinate-descent search over an adaptive time grid that minimizes a slip-tracking objective, exporting an optimized throttle table.
+- **`FINAL_DRIVE_GRIP_SWEEP_75M.m`** and **`PID_TUNER.m`** — parallel `parsim` sweeps (Parallel Computing Toolbox) for final-drive/grip and PID-gain studies respectively.
 
-In the current parameter set, **`P = 1.75`**, **`I = 4`**, **`D = 0`**, and **`Ts = 0.01 s`**, so the active controller is effectively operating as a **discrete PI controller** under this more general PID structure.
-
-Because the **saturation is applied after the PID block**, this is **not true anti-windup**. The integral action inside the discrete controller can still accumulate when the output is clipped, which can contribute to delayed release or overshoot during traction events.
+> The standalone sweep/optimizer scripts carry their own embedded copies of the vehicle parameters, some of which are slightly older than `PARAMS.m` (e.g. `Mv = 285.763 kg`, `h_cg = 0.25273 m`, `End_Blend = 8.0 m/s`). `PARAMS.m` is the authoritative current parameter set.
 
 ## How to Run
 ### Requirements
-- **MATLAB R2025B**
+- **MATLAB R2025b**
 - **Simulink**
+- **Parallel Computing Toolbox** (only for the `*_SWEEP` / `PID_TUNER` scripts)
 
 ### Workflow
-1. Open `PARAMS.mlx`.
-2. Configure the variables in `PARAMS.mlx` as desired.
-3. Run `PARAMS.mlx` to initialize workspace variables and setup parameters.
-4. Click **Run** in Matlab Live Editor.
-5. Inspect generated plots, logged signals, and workspace outputs.
+1. Open `PARAMS.m`.
+2. Adjust parameters at the top of the file as desired.
+3. Run `PARAMS.m`. It initializes the workspace, generates the launch table, runs `TC_SIM.slx` for 10 s, and reports the 0–75 m and 0–60 mph times in the Command Window.
+4. Inspect the generated plots and the exported PDF/PNG/CSV files written to `figures/`.
 
+### Alternative Entry Points
+- Run `PARAMS_IDEAL_LAUNCH_TABLE.m` instead of `PARAMS.m` to generate and test the model-inverted ideal launch table.
+- Run `THROTTLE_LOOKUP_GENERATOR.m` to optimize a throttle lookup table.
+- Run `FINAL_DRIVE_GRIP_SWEEP_75M.m` or `PID_TUNER.m` for sweep studies.
 
 ### Performance Metrics
-- **0-75 m time**
-- **0-60 mph time**
+- **0–75 m time**
+- **0–60 mph time** (speed target `26.8224 m/s`)
 
 ### Time-History Outputs
-The following signals are tracked or plotted versus time:
+The following signals are logged and plotted versus time (and exported as PDF/PNG/CSV):
 
-- **PID Output**
-- **Slip Ratio**
-- **Error**
-- **Distance**
-- **Velocity**
-- **Acceleration**
-- **Normal Force on Rear Axle**
-- **Target Motor Torque %**
-- **Tractive Force**
-- **Mu**
+- Launch throttle table
+- PID correction
+- Slip ratio
+- Slip error
+- Distance, Velocity, Acceleration
+- Downforce
+- Half-car front/rear normal load (`Fz_front`, `Fz_rear`)
+- Half-car front/rear suspension force
+- Half-car front/rear dynamic tire force
+- Half-car pitch angle
+- Target motor torque
+- Tractive force (and tractive force vs. slip ratio)
+- Friction coefficient `mu`
+- Blend `alpha`
+- Wheel-torque comparison (commanded vs. tractive vs. max available, at the wheel)
 
-These outputs are intended to support both performance optimization and controls debugging.
+These outputs support both performance optimization and controls debugging.
+
+## Model Parameters
+Current values from `PARAMS.m`:
+
+| Group | Parameter | Value |
+|---|---|---|
+| Vehicle | Mass `Mv` | 278.10 kg |
+| | Wheel radius `r` | 0.203 m |
+| | Final drive `fd` | 4.5 |
+| | CG height `h_cg` | 0.254 m |
+| | Wheelbase `W` | 1.53035 m |
+| | Front-axle-to-CG `halfcar_a` (`cg_f`) | 29.402 in ≈ 0.7468 m |
+| | CG-to-rear-axle `halfcar_b` | 30.848 in ≈ 0.7835 m |
+| | Drivetrain efficiency `Drive_Train` | 0.89 |
+| Drivetrain | Inertias `J`, `J_Motor`, `J_Wheel` | 0.51151, 0.34661, 0.16490 kg·m² |
+| | Half-shaft stiffness `K` | 5105.49 Nm/rad |
+| | Half-shaft damping `C` | 16.56 Nms/rad |
+| Aero | `A`, `rho`, `Cd`, `Cl`, `Cp` | 1.0 m², 1.225 kg/m³, 1.0, 3.8, 0.53 |
+| Motor | Max torque `Max_Motor_Torque` | 150 Nm |
+| | Max speed `Max_Motor_RPM` | 7000 rpm (EMRAX 208) |
+| | Torque lag `tau_motor` | 0.03 s |
+| Launch Control | Sample time `LC_TS` | 10 ms (`LC_Ts_sec = 0.01 s`) |
+| | Gains `LC_KP`, `LC_KI_STEP`, `LC_KD_STEP` | 700, 25, 0 |
+| | Slip target `LC_SLIP_TARGET` (`Slip_Target`) | 1300 permyriad (0.13) |
+| | Blend speeds `LC_START_BLEND`→`LC_END_BLEND` | 300→500 cm/s (3.0→5.0 m/s) |
+| | Controller influence | 100% |
+| Half-Car | Unsprung mass per axle | 32 lb (≈14.5 kg) each |
+| | Pitch inertia (total) | 110 slug·ft² |
+| | Suspension stiffness (front/rear) | 400 / 425 lbf/in |
+| | Tire stiffness (per tire) | 640 lbf/in |
+| | Suspension damping (front/rear) | 150.36 lbf/(ft/s) |
+| Other | Gravity | 9.80665 m/s² |
 
 ## Model Assumptions and Scope
-This model is intentionally focused on the FSAE acceleration event and uses a fixed set of vehicle, tire, aerodynamic, and controller parameters to keep the workflow fast, interpretable, and useful for iteration.
+This model is intentionally focused on the FSAE acceleration event and assumes:
 
-The current model setup assumes:
-
-- **straight-line rear-wheel-drive EV acceleration** for the **0-75 m event**
-- **vehicle mass `Mv = 285.763 kg`**, **wheel radius `r = 0.203 m`**, **CG height `h_cg = 0.25273 m`**, and **wheelbase `W = 1.53035 m`**
-- **static CG location `cg_f = 0.734568 m`** measured from the front axle
-- **drivetrain represented with lumped rotational inertias** using **`J = 1.2 kg*m^2`**, **`J_Motor = 0.25 kg*m^2`**, and **`J_Wheel = 0.165 kg*m^2`**
-- **half-shaft compliance modeled as a torsional spring-damper** with **stiffness `K = 2552 Nm/rad`** and **damping `C = 30 Nms/rad`**
-- **fixed final drive ratio `fd = 4.5`** and **drivetrain efficiency `Drive_Train = 0.89`**
-- **simplified longitudinal tire behavior** with **`Grip_Fact = 1.0`** and **`Grip_Influence = 1.2`** used to scale available grip and table sensitivity
-- **aerodynamics represented with constant coefficients** using **frontal area `A = 1 m^2`**, **air density `rho = 1.225 kg/m^3`**, **drag coefficient `Cd = 1`**, **lift coefficient `Cl = 3.8`**, and **rear aero load distribution `Cp = 0.53`**
-- **traction control targeting slip ratio `Slip_Target = 0.13`** with **initial driver torque request `T_request = 150 Nm`**
-- **blended controller scheduling between `3.0 m/s` and `8.0 m/s`** using **`Start_Blend = 3.0`** and **`End_Blend = 8.0`**
-- **actuator and speed limits** of **`Max_Wheel_Omega = 183.3 rad/s`** and **`Max_Motor_Torque = 150 Nm`**
-- **gravity fixed at `9.80665 m/s^2`**
-- **simulation-first development**, with no real-vehicle correlation completed yet
+- **straight-line rear-wheel-drive EV acceleration** for the **0–75 m event**
+- the **launch controller is the car's firmware algorithm** (fixed-point, 100 Hz), so simulation behavior reflects production control logic
+- **rear-axle normal load from the 4-DOF half-car model**, driven by longitudinal load transfer and aero downforce
+- **drivetrain represented with lumped rotational inertias** and a **torsional half-shaft spring–damper**
+- **simplified longitudinal tire behavior** (load-sensitive simplified Pacejka with a first-order relaxation lag)
+- **aerodynamics with constant coefficients**
+- a **time-based feedforward launch table** generated as a sigmoid in `PARAMS.m`
+- **simulation-first development**, with formal correlation against the 4.7 s real-world result still in progress
 
 ## Current Limitations
-This repository is actively under development, and several known areas still require refinement:
+This repository is under active development, and several areas still require refinement:
 
-- **half-shaft oscillation behavior appears to be imperfectly matched**, suggesting the compliance model or damping assumptions may need further tuning
-- the **PID loop is somewhat unstable** in parts of the launch event and may require additional tuning or control-structure improvements
-- the **baseline lookup table is not yet fully optimized**
-- model performance has **not yet been validated against real vehicle data**
+- **half-shaft oscillation behavior** may need further tuning of the compliance/damping assumptions
+- the **half-car suspension model** was recently added and its parameters are not yet fully validated
+- the **launch (feedforward) table** is not yet fully optimized for the current vehicle/tire parameters
+- model performance has **not yet been formally correlated** against the 4.7 s real-world acceleration data
 
 These limitations do not reduce the value of the repository as a design and tuning tool, but they should be kept in mind when interpreting results.
 
 ## Results and Validation
-This section is reserved for future simulation summaries, screenshots, and validation comparisons.
+**Real-world benchmark:** the team's best measured **0–75 m time is 4.7 s**. This is the primary validation target for the simulation.
 
-Planned additions include:
+Planned additions to this section:
 
-- best simulated **0-75 m** and **0-60 mph** results
-- optimal **final drive ratio** findings
-- representative **PID tuning comparisons**
+- best simulated **0–75 m** and **0–60 mph** results alongside the 4.7 s real-world time
+- optimal **final drive ratio** findings from the sweep studies
+- representative **launch-table and controller tuning** comparisons
 - example **plots and screenshots** from MATLAB and Simulink
-- eventual comparison between **simulation predictions and real vehicle data**
+- a documented **simulation-vs-real-vehicle correlation** once data alignment is complete
 
 ---
